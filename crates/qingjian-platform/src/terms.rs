@@ -14,8 +14,8 @@ use qingjian_dictionary::Dictionary;
 /// 术语在词库里的词频：只影响预选与语言模型兜底，实测 5 万就够把术语顶到同码首选。
 pub const TERM_BOOST: u32 = 50_000;
 
-/// 一条术语。只有前三个字段参与输入法。
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// 一条术语。只有词面、读音、标签、是否进候选参与输入法；其余列是设置程序展示与维护用的。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Term {
     /// 词面。
     pub word: String,
@@ -26,14 +26,61 @@ pub struct Term {
     /// 标签（工程施工 / 项目管理 / …）；界面分组用，排序不用。
     pub tag: String,
 
-    /// 是否参与拼音候选；商务沟通类的邮件缩写（ASAP / COB / EOD）是 `N`。
+    /// 是否参与拼音候选；商务沟通类的邮件缩写（ASAP / COB / EOD）是 N。
     pub in_candidates: bool,
 
-    /// 英文译名（第 5 列）；设置程序的「术语」页展示用，输入法不用。
+    /// 英文译名。
     pub english: String,
+
+    /// 其他译法，； 分隔。
+    pub other: String,
+
+    /// 备注。
+    pub note: String,
+
+    /// 来源（用户术语表 / 人工核对 / 租户装修指南 …）。
+    pub source: String,
+
+    /// 录入日期。
+    pub date: String,
+
+    pub japanese: String,
+
+    pub spanish: String,
+
+    pub french: String,
+
+    pub korean: String,
 }
 
-/// 解析术语表文本：`词 ⇥ 读音 ⇥ 标签 ⇥ 进拼音候选 ⇥ …`，注释与空行跳过，缺列按缺省补。
+/// 术语表的列数：十三列，多出来的忽略。
+const COLUMNS: usize = 13;
+
+impl Term {
+    /// 拼回一行（写回文件用）。十三列固定顺序，与 [parse] 对称。
+    pub fn line(&self) -> String {
+        let flag = if self.in_candidates { "Y" } else { "N" };
+        [
+            self.word.as_str(),
+            self.reading.as_str(),
+            self.tag.as_str(),
+            flag,
+            self.english.as_str(),
+            self.other.as_str(),
+            self.note.as_str(),
+            self.source.as_str(),
+            self.date.as_str(),
+            self.japanese.as_str(),
+            self.spanish.as_str(),
+            self.french.as_str(),
+            self.korean.as_str(),
+        ]
+        .join("\t")
+    }
+}
+
+/// 解析术语表文本：词 ⇥ 读音 ⇥ 标签 ⇥ 进拼音候选 ⇥ 英文 ⇥ 其他译法 ⇥ 备注 ⇥ 来源 ⇥ 日期 ⇥ 日 ⇥ 西 ⇥ 法 ⇥ 韩，
+/// 注释与空行跳过，缺列按缺省补。
 pub fn parse(text: &str) -> Vec<Term> {
     let mut terms = Vec::new();
     for raw in text.lines() {
@@ -45,23 +92,29 @@ pub fn parse(text: &str) -> Vec<Term> {
         if line.starts_with("词\t读音") || line.starts_with("词 读音") {
             continue;
         }
-        let mut fields = line.split('\t');
-        let Some(word) = fields.next().map(str::trim).filter(|w| !w.is_empty()) else {
+        let mut fields = line.split('\t').map(str::trim);
+        let Some(word) = fields.next().filter(|word| !word.is_empty()) else {
             continue;
         };
-        let reading = fields.next().unwrap_or("").trim().to_owned();
-        let tag = fields.next().unwrap_or("").trim().to_owned();
-        let in_candidates = !matches!(
-            fields.next().unwrap_or("").trim(),
-            "N" | "n" | "no" | "否" | "0"
-        );
-        let english = fields.next().unwrap_or("").trim().to_owned();
+        let mut columns = [""; COLUMNS];
+        columns[0] = word;
+        for (slot, value) in columns.iter_mut().skip(1).zip(fields) {
+            *slot = value;
+        }
         terms.push(Term {
-            word: word.to_owned(),
-            reading,
-            tag,
-            in_candidates,
-            english,
+            word: columns[0].to_owned(),
+            reading: columns[1].to_owned(),
+            tag: columns[2].to_owned(),
+            in_candidates: !matches!(columns[3], "N" | "n" | "no" | "否" | "0"),
+            english: columns[4].to_owned(),
+            other: columns[5].to_owned(),
+            note: columns[6].to_owned(),
+            source: columns[7].to_owned(),
+            date: columns[8].to_owned(),
+            japanese: columns[9].to_owned(),
+            spanish: columns[10].to_owned(),
+            french: columns[11].to_owned(),
+            korean: columns[12].to_owned(),
         });
     }
     terms
