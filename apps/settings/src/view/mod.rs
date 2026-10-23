@@ -142,6 +142,7 @@ fn page_children(
         PageId::Appearance => pages::appearance::appearance(ui, page)?,
         PageId::Shortcuts => pages::shortcuts::shortcuts(ui, page)?,
         PageId::Phrases => pages::phrases::phrases(ui, page)?,
+        PageId::Terms => pages::terms::terms(ui, page)?,
         PageId::Dictionaries => pages::dictionaries::dictionaries(ui, page)?,
         PageId::Cloud => pages::cloud::cloud(ui, page)?,
         PageId::Stats => pages::stats::stats(ui, page)?,

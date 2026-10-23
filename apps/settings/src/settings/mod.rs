@@ -84,6 +84,12 @@ pub struct Settings {
     /// 开着的短语编辑卡片。
     pub phrase: Option<PhraseEditor>,
 
+    /// 术语页的数据，进术语页时读。
+    pub terms: Option<crate::terms::Terms>,
+
+    /// 术语页当前的标签筛选（None 全部）。
+    pub term_tag: Option<String>,
+
     /// 统计页的数，进统计页时读。
     pub stats: Option<Stats>,
 
@@ -159,6 +165,8 @@ impl Settings {
             phrase: None,
             stats: None,
             stats_cloud: false,
+            terms: None,
+            term_tag: None,
             waker: None,
             search: Search::default(),
             ctrl_space: system_ctrl_space(),

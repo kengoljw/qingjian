@@ -47,6 +47,10 @@ impl App for Settings {
                 if page == PageId::Dictionaries {
                     self.library = Library::scan();
                 }
+                if page == PageId::Terms {
+                    self.terms = Some(crate::terms::Terms::load());
+                    self.term_tag = None;
+                }
                 if page == PageId::Stats {
                     self.stats = Some(Stats::load(&self.config.general));
                 }
@@ -183,6 +187,7 @@ impl App for Settings {
                 }
             }
             Message::ToggleSources => self.sources_open = !self.sources_open,
+            Message::TermTag(tag) => self.term_tag = tag,
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {
                 self.search.edit.apply(&edit);
