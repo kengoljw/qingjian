@@ -1,0 +1,152 @@
+//! Replays recorded candidate lists and reports what reranking does.
+//!
+//! One JSON object per line, holding the candidates an engine actually produced for a case, in the
+//! order it produced them. Recording that file is each input method's own job; `eval/README.md`
+//! gives the shape.
+//!
+//! This exists to check the Rust forward pass against the Python one in `neural/`. Both
+//! read the same weights and the same cases, so the two tables have to agree; a port that merely
+//! looks plausible on one hand-picked example is not evidence of anything.
+//!
+//! usage: replay <model.safetensors> <cases.jsonl>
+
+use std::time::Instant;
+
+use std::sync::Arc;
+
+use chinese_ime_lm::{CandidateFacts, Reranker, SentenceModel};
+
+#[derive(serde::Deserialize)]
+struct Candidate {
+    text: String,
+    source: u8,
+    /// Absent in dumps recorded before the field existed; the length test stands in then.
+    #[serde(default)]
+    answers_key: Option<bool>,
+    /// Absent likewise; the source stands in. An engine that corrects input has to state it, because
+    /// a hit on a corrected key reports the same source as a hit on the typed one.
+    #[serde(default)]
+    trusted_dictionary_hit: Option<bool>,
+}
+
+#[derive(serde::Deserialize)]
+struct Case {
+    gold: String,
+    #[serde(default)]
+    context: String,
+    candidates: Vec<Candidate>,
+}
+
+#[derive(Default)]
+struct Bucket {
+    cases: usize,
+    before: usize,
+    after: usize,
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let model_path = args
+        .next()
+        .expect("usage: replay <model.safetensors> <cases.jsonl>");
+    let cases_path = args
+        .next()
+        .expect("usage: replay <model.safetensors> <cases.jsonl>");
+
+    let bytes = std::fs::read(&model_path).expect("read model");
+    let mut reranker = Reranker::new(Arc::new(SentenceModel::load(&bytes).expect("load model")));
+    let text = std::fs::read_to_string(&cases_path).expect("read cases");
+
+    let mut dictionary = Bucket::default();
+    let mut decoded = Bucket::default();
+    let mut elapsed = std::time::Duration::ZERO;
+    let mut decisions = 0usize;
+
+    for line in text.lines().filter(|line| !line.trim().is_empty()) {
+        let case: Case = serde_json::from_str(line).expect("parse case");
+        // The runtime criterion, not the evaluation's: the gate and the comparable set are decided
+        // from what the dump states about each candidate. The evaluation could filter by the length
+        // of the correct answer; the input method cannot.
+        let sources: Vec<u8> = case
+            .candidates
+            .iter()
+            .map(|candidate| candidate.source)
+            .collect();
+        let texts: Vec<&str> = case
+            .candidates
+            .iter()
+            .map(|candidate| candidate.text.as_str())
+            .collect();
+        if sources.is_empty() {
+            continue;
+        }
+        // Both facts default to what the source and the length imply, so a dump recorded before
+        // either field existed replays exactly as it did. A dump from an engine that corrects input
+        // states them, because there they are not the same question.
+        let width = texts[0].chars().count();
+        let facts: Vec<CandidateFacts> = case
+            .candidates
+            .iter()
+            .map(|candidate| CandidateFacts {
+                answers_key: candidate
+                    .answers_key
+                    .unwrap_or_else(|| candidate.text.chars().count() == width),
+                trusted_dictionary_hit: candidate.trusted_dictionary_hit.unwrap_or_else(|| {
+                    chinese_ime_lm::DICTIONARY_SOURCES.contains(&candidate.source)
+                }),
+            })
+            .collect();
+        if facts.iter().filter(|fact| fact.answers_key).count() < 2 {
+            continue;
+        }
+
+        let bucket = if facts[0].trusted_dictionary_hit {
+            &mut dictionary
+        } else {
+            &mut decoded
+        };
+        bucket.cases += 1;
+        bucket.before += usize::from(texts[0] == case.gold);
+
+        let started = Instant::now();
+        let chosen = reranker
+            .best_where(&case.context, &texts, |index| facts[index])
+            .unwrap_or(0);
+        elapsed += started.elapsed();
+        decisions += 1;
+        bucket.after += usize::from(texts[chosen] == case.gold);
+    }
+
+    println!(
+        "{:<22}{:>7}{:>9}{:>10}{:>8}",
+        "leading candidate", "n", "engine", "reranked", "delta"
+    );
+    let mut total = Bucket::default();
+    for (name, bucket) in [("dictionary", &dictionary), ("decoded", &decoded)] {
+        if bucket.cases == 0 {
+            continue;
+        }
+        report(name, bucket);
+        total.cases += bucket.cases;
+        total.before += bucket.before;
+        total.after += bucket.after;
+    }
+    report("all", &total);
+    if decisions > 0 {
+        println!(
+            "\n{decisions} decisions, {:?} each on average",
+            elapsed / decisions as u32
+        );
+    }
+}
+
+fn report(name: &str, bucket: &Bucket) {
+    let cases = bucket.cases.max(1) as f64;
+    let before = bucket.before as f64 / cases;
+    let after = bucket.after as f64 / cases;
+    println!(
+        "{name:<22}{:>7}{before:>9.3}{after:>10.3}{:>+8.3}",
+        bucket.cases,
+        after - before
+    );
+}

@@ -165,6 +165,10 @@ P2C 教师强制打分 `CharScorer::score_p2c(keys, texts)`：前缀 `<eos> + �
 共享拼音前缀 KV，候选批量前向；超过上下文时报错，不截断拼音。CLI 实验入口 `--eval-p2c data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm --eval-text data/eval/sentences.tsv`，
 用 `--neural-weight` 调 λ。评测适配器与产品端 `P2cScorer` 同一条件，只是推理出错时直接终止（不静默回退到基线冒充成功）。
 `--eval-details <输出.jsonl>` 为任意整句评测保存逐句首选、整句候选、全部候选与查询耗时，支持配对比较，仍不上屏、不学习。
+每行另有 `candidate_facts`：逐条候选的 `kind`、`syllables`、`answers_key`（上屏是否吃满整段按键）与
+`trusted_dictionary_hit`（是否是可信的词典整键命中，纠错生效时一律为假）。这两个布尔值只能由引擎回答——
+`xian` 读作 `现` 或 `西安`，字数不同却都吃满整段按键；用字数或候选来源猜，正是
+[ime-lm-eval.md](ime-lm-eval.md) 里那套同池重排工具要避免的错误。
 
 P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm`（`P2c::convert` 束宽 5，不经词图不经重排），
 量的是重排这层架构的上限代价；2081 句上首选 51.9% / 前五 73.5%，对比重排路径的 42.3% / 45.5%，两条路互补（只有生成对 16.5%、只有重排对 6.9%），
@@ -405,6 +409,19 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
   Unicode emoji-test.txt（只收完全限定、不带肤色、Emoji 15.1 以内）与 CLDR 中文 annotations（名字与关键词）生成。
 - `crates/qingjian-core/data/{emoji,kaomoji,symbols,words}.tsv`：编进 Core 的小表（口语 emoji 叫法、颜文字、符号，以及词库没有的那些词的读音），来源见同目录 README。
 - 英文词表词频：`uv run tools/corpus/english_frequency.py data/generated/english.tsv -o data/generated/english-frequency.tsv`，再 `... english <词表> --frequency <那个文件>`。
+
+## tools/ime-lm-rerank
+
+读 `--eval-details` 产出的 `base.jsonl`，把上游 [chinese-ime-lm](https://github.com/metasequoiaime/chinese-ime-lm)
+的字级重排模型套在**同一批候选**上重排，输出结构相同的 `ext.jsonl`（多一个 `promoted` 与逐句 `rerank_ms`）。
+`cargo run --release -p ime-lm-rerank -- <model.safetensors> <base.jsonl> <ext.jsonl>`，汇总用同目录的
+`analyze.py`（指标 + 配对 McNemar 精确检验）。
+
+- 依赖以 path 指向 `vendor/chinese-ime-lm`（Apache-2.0，固定 commit）；vendor 不在 workspace members 里，
+  根 `Cargo.toml` 用 `exclude = ["vendor"]` 挡住。
+- 只重排不重新生成候选，否则比的是解码器；前三命中率必须与 base 完全相同，这是自检。
+- 字表外字符只对**参与比较的候选**（`answers_key` 为真）设闸门：套在全部候选上会把英文与符号也算进来，
+  九成句子会被无谓跳过。理由与整套实测数字见 [ime-lm-eval.md](ime-lm-eval.md)。
 
 ## tools/gloss-gen
 

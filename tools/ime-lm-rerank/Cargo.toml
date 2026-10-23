@@ -1,0 +1,15 @@
+[package]
+name = "ime-lm-rerank"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "把 chinese-ime-lm 的模型接到青简已有的整句候选上做同池离线重排评测"
+
+# 与青简 workspace 共用锁文件：依赖版本已经钉在 Cargo.lock 里，沙箱里只能离线装
+# 依赖，新建独立 lock 会重新解析出一批没缓存的版本。
+[dependencies]
+chinese-ime-lm = { path = "../../vendor/chinese-ime-lm" }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
