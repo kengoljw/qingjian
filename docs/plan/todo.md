@@ -36,6 +36,19 @@
 
 ## 一、日常输入体验（决定自己会不会一直用）
 
+- [ ] ★ 候选质量：尺子先拆开（2026-10-23，`--eval-text` 分打覆盖缺口 / 排序缺口，见 `docs/plan/model-eval.md`）；
+  下一步补**日常语料集**（现有集是本仓库技术文档，偏科，用它调词库会过拟合），再按缺口扩词库、放宽建图限额（每格 6 词 / 束宽 8，长句覆盖明显偏低）
+- [ ] ★ 个人术语表（设计见 [personal-terms.md](../design/personal-terms.md)，2026-10-23 定：只参与排序、不置顶）：
+  用户目录 `user-terms.tsv`（词 / 读音 / 标签 / 译词 / 来源）+ 排序加成 + 屏蔽表，设置新增「术语」页（增删改查、一行一词批量、导入导出）
+- [ ] 领域词库补缺（2026-10-23 调研见 [domain-lexicon-sources.md](../notes/domain-lexicon-sources.md)）：
+  工程施工 / 项目管理 / 建筑设计 / 机电 / 商业品牌 五本随包都没有，**也没有可随包的现成词表**（术语在线禁转载、国标受著作权）。
+  路线：自建核心表（每领域 300–800 条，LLM 起草 + 人工审）→ 政府公文与中文维基 dump 走 `dict-convert mine` 扩词 →
+  Wikidata CC0 / 维基 CC BY-SA 补品牌与二次元；IT 已有，二次元不引 NC 来源
+- [ ] ★ 用户词库译文生成（设计见 [personal-terms.md](../design/personal-terms.md)）：云端批量、英 / 日 / 西 / 法 / 韩，
+  待确认表（`user-glossary-pending-<语言>.tsv`）改完再进正式表，限流与用量与 Phase 6 合并
+- [ ] 新增法语与韩语：`Language::French` / `Korean` + `gloss-gen` 语言与提示词 + `glossary-fr.tsv` / `glossary-ko.tsv` +
+  设置「语言」页与三个壳的界面名（八处落点见 [personal-terms.md](../design/personal-terms.md) 的「新增一门学习语言的改动面」一节）
+- [ ] 研究：输入中文直接出英文句子（2026-10-23 提出，下一阶段；先按 `docs/plan/model-eval.md` 写假设与尺子再立项）
 - [ ] 整句转换收尾：语料再补（现在是维基 + LCCC 微博对话，新闻 / 小说体还缺；bigram 只留次数 ≥ 6 的前 300 万对，
   `wxqcf` 出 我想去蹭饭 就是「我想 → 去蹭饭」8 次进了表、「我想去 → 吃饭」没进的稀疏问题，简拼把读音放开后这类问题更显眼）；
   个人 n-gram 已做（二元 + 三元），「按应用分别记」看用起来的效果再说

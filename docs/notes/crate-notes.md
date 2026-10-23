@@ -214,7 +214,12 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；
 `extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`
-（mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
+（mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；个人术语表 `user-terms.tsv` 放在 `dicts/` 的上一级，
+由 `terms` 模块解析成一本附加词库（词频 `TERM_BOOST = 50_000`）追加在最后，三个壳与热加载都自动带上——
+术语不置顶，只按词频参与排序；30 条样本实测首选 15→28、前三 17→30、落到九名外 13→0。
+文件是 13 列（词 / 读音 / 标签 / 进拼音候选 / 英文 / 其他译法 / 备注 / 来源 / 录入日期 / 日 / 西 / 法 / 韩），
+输入法只用前四列，坏行跳过；只收「进拼音候选 = Y 且标了读音」的条目；
+`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
 （`[aux_code] disabled` 是黑名单，`[general] aux_code_key` 缺省 `;` 且校验后退回缺省、`aux_code_show` 是显示码开关）；
 `protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型
 （`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」；
@@ -280,8 +285,10 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
   `user-words.tsv`（保留已有的），不给只打印预演。不带 `--mine-apply` 单独跑一次本身已是清单预览。
 - `--eval-text <文本>...` 装了码表（`--aux-table`）时多打一行码表覆盖率：词频前 10,000 与全库两段命中比例（与导入统计同源）。
 - `--eval-text <文本>...` 整句评测：把用户自己写的中文文本按标点切句、按词库读音转成全拼，冷启动喂给引擎看整句能不能还原原句
-  （首选命中率 / 字准确率 / 查询耗时；不依赖日志里当时选了什么，给整句排序与语言模型的改动当尺子），`--eval-save` 冻结成 `句子\t拼音\t上文` 三列文件，
+  （覆盖率 / 首选命中率 / 字准确率 / 查询耗时；不依赖日志里当时选了什么，给整句排序与语言模型的改动当尺子），`--eval-save` 冻结成 `句子\t拼音\t上文` 三列文件，
   之后直接 `--eval-text` 它保证比的是同一份句子（本机的在 `data/eval/sentences.tsv`）。排序、整句、纠错的改动先跑它们再合。
+  报告把两个缺口分开打：**覆盖缺口**（原句根本不在候选里，多半是词库缺词或建图没走到）与**排序缺口**（在候选里但没排第一）。
+  调词库看前者，调排序看后者；混在一起看会把词库问题误当排序问题。
 
 ## apps/macos
 

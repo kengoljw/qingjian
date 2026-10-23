@@ -73,8 +73,24 @@ pub fn load(
             }
             loaded.extend(open(&stem, &path));
         }
+        // 个人术语表放在用户数据目录（`dicts/` 的上一级），与附加词库一起装到 Engine 上
+        let terms = terms_path(dir);
+        if let Some(dictionary) = crate::terms::dictionary(&terms) {
+            loaded.push(dictionary);
+        }
     }
     loaded
+}
+
+/// 术语表路径：`dicts/` 的上一级是用户数据目录，`user-terms.tsv` 就在那里。
+fn terms_path(dicts_dir: &Path) -> PathBuf {
+    match dicts_dir.file_name().and_then(|name| name.to_str()) {
+        Some("dicts") => dicts_dir
+            .parent()
+            .unwrap_or(dicts_dir)
+            .join("user-terms.tsv"),
+        _ => dicts_dir.join("user-terms.tsv"),
+    }
 }
 
 fn open(stem: &str, path: &Path) -> Option<Dictionary> {
@@ -134,5 +150,35 @@ mod tests {
             .collect();
         assert_eq!(names, [("idioms", "idioms.qj")]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn user_terms_become_one_more_dictionary() {
+        let root =
+            std::env::temp_dir().join(format!("qingjian-terms-dicts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dicts = root.join("dicts");
+        std::fs::create_dir_all(&dicts).unwrap();
+        std::fs::write(
+            root.join("user-terms.tsv"),
+            "业主\tye zhu\t工程施工\tY\n没读音\t\t工程施工\tY\n不进候选\tbu jin\t商务沟通\tN\n",
+        )
+        .unwrap();
+
+        let loaded = load(None, Some(&dicts), &DictionariesConfig::default());
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].len(), 1);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn missing_user_terms_file_is_not_an_error() {
+        let root = std::env::temp_dir().join(format!("qingjian-no-terms-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dicts = root.join("dicts");
+        std::fs::create_dir_all(&dicts).unwrap();
+        let loaded = load(None, Some(&dicts), &DictionariesConfig::default());
+        assert!(loaded.is_empty());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
