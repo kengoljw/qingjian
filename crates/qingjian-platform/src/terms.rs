@@ -28,6 +28,9 @@ pub struct Term {
 
     /// 是否参与拼音候选；商务沟通类的邮件缩写（ASAP / COB / EOD）是 `N`。
     pub in_candidates: bool,
+
+    /// 英文译名（第 5 列）；设置程序的「术语」页展示用，输入法不用。
+    pub english: String,
 }
 
 /// 解析术语表文本：`词 ⇥ 读音 ⇥ 标签 ⇥ 进拼音候选 ⇥ …`，注释与空行跳过，缺列按缺省补。
@@ -52,11 +55,13 @@ pub fn parse(text: &str) -> Vec<Term> {
             fields.next().unwrap_or("").trim(),
             "N" | "n" | "no" | "否" | "0"
         );
+        let english = fields.next().unwrap_or("").trim().to_owned();
         terms.push(Term {
             word: word.to_owned(),
             reading,
             tag,
             in_candidates,
+            english,
         });
     }
     terms
@@ -149,6 +154,13 @@ mod tests {
         let terms = parse(text);
         assert_eq!(terms.len(), 1);
         assert_eq!(terms[0].word, "业主");
+    }
+
+    #[test]
+    fn english_column_is_read_for_display() {
+        let terms = parse("业主\tye zhu\t工程施工\tY\tlandlord\n");
+        assert_eq!(terms[0].english, "landlord");
+        assert_eq!(parse("没英文\tmei ying wen\n")[0].english, "");
     }
 
     #[test]
