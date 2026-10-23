@@ -44,6 +44,7 @@ impl App for Settings {
                 self.page = page;
                 self.recording = None;
                 self.close_phrase();
+                self.close_term();
                 if page == PageId::Dictionaries {
                     self.library = Library::scan();
                 }
@@ -188,6 +189,28 @@ impl App for Settings {
             }
             Message::ToggleSources => self.sources_open = !self.sources_open,
             Message::TermTag(tag) => self.term_tag = tag,
+            Message::TermLang(lang) => self.term_lang = lang,
+            Message::OpenTerm(index) => self.open_term(index),
+            Message::CloseTerm => self.close_term(),
+            Message::SaveTerm => self.save_term(false),
+            Message::DeleteTerm => {
+                if self
+                    .term
+                    .as_mut()
+                    .is_some_and(|editor| !editor.confirm_delete)
+                {
+                    if let Some(editor) = self.term.as_mut() {
+                        editor.confirm_delete = true;
+                    }
+                } else {
+                    self.save_term(true);
+                }
+            }
+            Message::TermCandidates(on) => {
+                if let Some(editor) = self.term.as_mut() {
+                    editor.in_candidates = on;
+                }
+            }
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {
                 self.search.edit.apply(&edit);

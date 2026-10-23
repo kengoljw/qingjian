@@ -90,6 +90,11 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     shot(&mut runner, "空着点保存：卡片里说原因")?;
     click(&mut runner, Key::ROOT.child("phrase-cancel"))?;
 
+    click(&mut runner, Key::ROOT.child("nav").child(PageId::Terms))?;
+    click(&mut runner, Key::ROOT.child("add-term"))?;
+    shot(&mut runner, "术语：点「新增」弹出编辑卡片")?;
+    click(&mut runner, Key::ROOT.child("term-cancel"))?;
+
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Advanced))?;
     click(&mut runner, Key::ROOT.child("clear-input-log"))?;
     shot(&mut runner, "高级：点一下清空，按钮变成确认")?;

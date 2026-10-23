@@ -8,6 +8,7 @@ mod library;
 mod phrases;
 mod search;
 mod shortcuts;
+mod terms_edit;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -90,6 +91,12 @@ pub struct Settings {
     /// 术语页当前的标签筛选（None 全部）。
     pub term_tag: Option<String>,
 
+    /// 术语页显示哪个语种的译名。
+    pub term_lang: crate::terms::Lang,
+
+    /// 开着的术语编辑卡片。
+    pub term: Option<crate::terms::TermEditor>,
+
     /// 统计页的数，进统计页时读。
     pub stats: Option<Stats>,
 
@@ -167,6 +174,8 @@ impl Settings {
             stats_cloud: false,
             terms: None,
             term_tag: None,
+            term_lang: crate::terms::Lang::En,
+            term: None,
             waker: None,
             search: Search::default(),
             ctrl_space: system_ctrl_space(),

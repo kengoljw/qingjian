@@ -14,6 +14,7 @@ use crate::library::Kind;
 use crate::page_id::PageId;
 use crate::shortcut::Shortcut;
 use crate::system::action::Action;
+use crate::terms::Lang;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -55,6 +56,16 @@ pub enum Message {
     TogglePhrase(usize),
     /// 术语页按标签筛（None 全部）。
     TermTag(Option<String>),
+    /// 术语页显示哪个语种的译名。
+    TermLang(Lang),
+    /// 打开术语编辑卡片：None 新增，Some(i) 改第 i 条。
+    OpenTerm(Option<usize>),
+    SaveTerm,
+    /// 卡片里的「删除」（第一下只是确认）。
+    DeleteTerm,
+    CloseTerm,
+    /// 卡片里的「进拼音候选」开关。
+    TermCandidates(bool),
     /// 选文件导入词库或码表。
     Import(Kind),
     /// 移除用户导入的一本（文件名不含扩展名）。

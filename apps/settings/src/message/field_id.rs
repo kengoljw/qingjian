@@ -8,6 +8,14 @@ pub enum FieldId {
     ApiKey,
     PhraseCode,
     PhraseText,
+    TermWord,
+    TermReading,
+    TermTag,
+    TermEnglish,
+    TermJapanese,
+    TermSpanish,
+    TermFrench,
+    TermKorean,
 }
 
 impl FieldId {
@@ -22,6 +30,14 @@ impl FieldId {
             Self::ApiKey => "api_key",
             Self::PhraseCode => "code",
             Self::PhraseText => "text",
+            Self::TermWord => "word",
+            Self::TermReading => "reading",
+            Self::TermTag => "tag",
+            Self::TermEnglish => "english",
+            Self::TermJapanese => "japanese",
+            Self::TermSpanish => "spanish",
+            Self::TermFrench => "french",
+            Self::TermKorean => "korean",
         }
     }
 }
