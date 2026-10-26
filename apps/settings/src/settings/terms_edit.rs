@@ -98,15 +98,37 @@ impl Settings {
             }
             term
         });
-        let saved = editor.apply(&original, term).and_then(|entries| {
+        let removed = delete
+            .then(|| {
+                editor
+                    .index
+                    .and_then(|i| original.get(i))
+                    .map(|term| term.word.clone())
+            })
+            .flatten();
+        let added = term.as_ref().map(|term| term.word.clone());
+        let saved = editor.apply(&original, term.clone()).and_then(|entries| {
             let path = path().ok_or_else(|| "找不到用户数据目录".to_owned())?;
             save(&path, &entries)?;
             Ok(entries)
         });
         match saved {
             Ok(entries) => {
+                // 删掉的词进屏蔽表，重加的词从屏蔽表拿走：学习层下次读盘生效
+                if let Some(word) = removed
+                    && let Err(error) = crate::terms::blocked::add(&word)
+                {
+                    tracing::warn!(%error, "写屏蔽表失败");
+                }
+                if let Some(word) = added
+                    && let Err(error) = crate::terms::blocked::remove(&word)
+                {
+                    tracing::warn!(%error, "清屏蔽表失败");
+                }
+                let blocked = crate::terms::blocked::words().len();
                 if let Some(list) = self.terms.as_mut() {
                     list.entries = entries;
+                    list.blocked = blocked;
                     list.error = None;
                 }
                 self.close_term();

@@ -52,6 +52,17 @@ pub fn terms(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     if let Some(error) = &list.error {
         out.push(paragraph(ui, theme, error, None)?);
     }
+    if list.blocked > 0 {
+        out.push(paragraph(
+            ui,
+            theme,
+            &format!(
+                "屏蔽表 {} 个词：删掉的词不会再被自动学习加回来（重新加进术语表会自动解除）。",
+                list.blocked
+            ),
+            None,
+        )?);
+    }
 
     out.push(header(ui, page)?);
     out.push(chips(ui, page, list)?);

@@ -9,6 +9,7 @@ use qingjian_platform::terms::{self, Term};
 
 use crate::system::paths;
 
+pub mod blocked;
 pub mod editor;
 
 pub use editor::TermEditor;
@@ -67,6 +68,9 @@ impl Lang {
 pub struct Terms {
     pub entries: Vec<Term>,
 
+    /// 屏蔽表里的词数（删掉的词，不再被自动学习加回来）。
+    pub blocked: usize,
+
     /// 读不出来时的原因（文件不在 / 没有可用条目），页上原样显示。
     pub error: Option<String>,
 }
@@ -76,20 +80,27 @@ impl Terms {
         let Some(path) = path() else {
             return Self {
                 entries: Vec::new(),
+                blocked: 0,
                 error: Some("找不到用户数据目录".to_owned()),
             };
         };
         if !path.is_file() {
             return Self {
                 entries: Vec::new(),
+                blocked: 0,
                 error: Some(format!("{} 还不存在", path.display())),
             };
         }
         let entries = terms::load(&path);
+        let blocked = blocked::words_at(&path.with_file_name("user-blocked.tsv")).len();
         let error = entries
             .is_empty()
             .then(|| format!("{} 里没有可用条目", path.display()));
-        Self { entries, error }
+        Self {
+            entries,
+            blocked,
+            error,
+        }
     }
 
     /// 参与拼音候选的条数：要勾了候选、还要有读音。
@@ -159,6 +170,7 @@ mod tests {
     fn list(text: &str) -> Terms {
         Terms {
             entries: parse(text),
+            blocked: 0,
             error: None,
         }
     }

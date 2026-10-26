@@ -284,6 +284,21 @@ impl FrequencyLearner {
         frequency_path.with_file_name(USER_WORDS_FILE)
     }
 
+    /// 屏蔽表与词频文件同目录。
+    pub fn blocked_path(frequency_path: &Path) -> PathBuf {
+        frequency_path.with_file_name(BLOCKED_FILE)
+    }
+
+    /// 这个词是不是被屏蔽了（术语页删掉的那些）。
+    pub fn is_blocked(&self, text: &str) -> bool {
+        self.blocked.contains(text)
+    }
+
+    /// 屏蔽表里的词数，设置程序显示用。
+    pub fn blocked_len(&self) -> usize {
+        self.blocked.len()
+    }
+
     /// 个人 n-gram 文件与词频文件同目录。
     pub(super) fn ngram_path(frequency_path: &Path) -> PathBuf {
         frequency_path.with_file_name(USER_NGRAM_FILE)
@@ -323,6 +338,24 @@ impl FrequencyLearner {
         skipped
     }
 
+    /// 读屏蔽表：一行一个词，`#` 开头与空行跳过，返回跳过的行数（这里只数空词）。
+    pub(super) fn load_blocked(&mut self, source: &str) -> usize {
+        let mut skipped = 0;
+        for line in data_lines(source) {
+            let word = line.trim();
+            if word.is_empty() || word.starts_with('#') {
+                continue;
+            }
+            if word.contains('\t') {
+                skipped += 1;
+                continue;
+            }
+            self.blocked.insert(word.to_owned());
+        }
+        self.rebuild_words();
+        skipped
+    }
+
     /// 用户词很少，每次变化整个重建小词库即可。
     pub(super) fn rebuild_words(&mut self) {
         if self.words.is_empty() {
@@ -332,6 +365,7 @@ impl FrequencyLearner {
         let tsv: String = self
             .words
             .iter()
+            .filter(|(text, _)| !self.blocked.contains(*text))
             .map(|(text, pinyin)| format!("{text}\t{pinyin}\t{USER_WORD_FREQUENCY}\n"))
             .collect();
         match Dictionary::parse(&tsv) {

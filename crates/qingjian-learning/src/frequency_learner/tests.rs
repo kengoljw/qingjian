@@ -435,3 +435,53 @@ fn choices_generalize_by_reading_key() {
     // 与撤销无关的记录还在：意义 / 上面（两条键）/ 该
     assert_eq!(learner.choice_count(), 4);
 }
+
+#[test]
+fn blocked_words_are_not_learned_again() {
+    let dir = std::env::temp_dir().join(format!("qingjian-blocked-learn-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("user-blocked.tsv"), "# 术语页删掉的词\n旧词\n").unwrap();
+    let mut learner = FrequencyLearner::from_path(dir.join("user.tsv")).unwrap();
+    assert!(learner.is_blocked("旧词"));
+    learn_word(&mut learner, "旧词", &["jiu", "ci"]);
+    assert!(learner.user_words().is_none(), "屏蔽的词不该进用户词库");
+    learn_word(&mut learner, "新词", &["xin", "ci"]);
+    assert_eq!(learner.user_words().map(|words| words.len()), Some(1));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn blocking_a_learned_word_drops_it_from_the_user_dictionary() {
+    let dir = std::env::temp_dir().join(format!("qingjian-blocked-drop-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("user-words.tsv"),
+        "旧词\tjiu ci\t100\n新词\txin ci\t100\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("user-blocked.tsv"), "旧词\n").unwrap();
+    let learner = FrequencyLearner::from_path(dir.join("user.tsv")).unwrap();
+    assert_eq!(learner.user_words().map(|words| words.len()), Some(1));
+    assert_eq!(learner.blocked_len(), 1);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn blocked_file_skips_comments_and_malformed_lines() {
+    let dir = std::env::temp_dir().join(format!("qingjian-blocked-bad-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("user-blocked.tsv"), "# 注释\n\n旧词\n坏\t行\n").unwrap();
+    let learner = FrequencyLearner::from_path(dir.join("user.tsv")).unwrap();
+    assert_eq!(learner.blocked_len(), 1);
+    assert!(learner.is_blocked("旧词"));
+    assert!(!learner.is_blocked("坏"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+fn learn_word(learner: &mut FrequencyLearner, text: &str, syllables: &[&str]) {
+    let syllables: Vec<String> = syllables
+        .iter()
+        .map(|syllable| (*syllable).to_owned())
+        .collect();
+    Learner::learn_word(learner, text, &syllables);
+}
