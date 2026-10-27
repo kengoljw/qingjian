@@ -19,7 +19,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use qingjian_core::Engine;
+use qingjian_core::{CandidateKind, Engine};
 
 pub use report::Report;
 
@@ -210,9 +210,114 @@ fn evaluate(
         "position": position,
         "query_ms": elapsed.as_secs_f64() * 1000.0,
         "candidates": items.iter().map(|c| c.text.as_str()).collect::<Vec<_>>(),
+        "candidate_facts": items.iter().map(|c| candidate_fact(c, &query)).collect::<Vec<_>>(),
     });
     engine.clear();
     row
+}
+
+/// 一条候选对外的「事实」，写进 `--eval-details` 供离线重排工具判读。
+///
+/// 这两个布尔值**只能由引擎回答**，不能从候选文本猜：`xian` 读作 `现` 或 `西安`，字数不同却都吃满
+/// 整段按键；而纠错一旦介入，词典整键命中的那个词其实是用户没敲的键的命中。
+fn candidate_fact(
+    candidate: &qingjian_core::Candidate,
+    query: &qingjian_core::engine::Query,
+) -> serde_json::Value {
+    let total = query
+        .segmentations
+        .first()
+        .map_or(0, |segmentation| segmentation.syllables.len());
+    let answers_key = answers_whole_key(
+        candidate.kind,
+        candidate.syllables.len(),
+        total,
+        query.tail.is_empty(),
+    );
+    // 纠错生效时候选来自纠正后的拼音，原来的整键命中不再是「用户想要的那个键」的证据
+    let trusted =
+        candidate.kind == CandidateKind::Chinese && answers_key && query.correction.is_none();
+    serde_json::json!({
+        "text": candidate.text.as_str(),
+        "kind": kind_name(candidate.kind),
+        "syllables": candidate.syllables.len(),
+        "answers_key": answers_key,
+        "trusted_dictionary_hit": trusted,
+    })
+}
+
+/// 这条候选上屏时是否吃满整段按键。分类照 `engine::commit` 的真实消耗语义：
+/// 词库词与整句按音节逐个对齐吃，对不齐就只吃一段；形码 / 英文 / 云联想 / 快捷 / 自定义 / 生成整句
+/// 都吃掉整个作用域，没有音节也能吃满。
+fn answers_whole_key(
+    kind: CandidateKind,
+    syllables: usize,
+    total: usize,
+    tail_empty: bool,
+) -> bool {
+    match kind {
+        CandidateKind::Chinese | CandidateKind::Sentence => tail_empty && syllables == total,
+        // 跟在词后面的 emoji / 颜文字 / 符号：有音节按音节吃，没有就吃整段作用域
+        CandidateKind::Emoji | CandidateKind::Kaomoji | CandidateKind::Symbol => {
+            syllables == 0 || (tail_empty && syllables == total)
+        }
+        _ => true,
+    }
+}
+
+/// 候选来源的稳定名字（`Custom` 带序号），写进 JSONL 而不是靠 `Debug` 的输出。
+fn kind_name(kind: CandidateKind) -> String {
+    match kind {
+        CandidateKind::Chinese => "Chinese",
+        CandidateKind::Code => "Code",
+        CandidateKind::English => "English",
+        CandidateKind::Cloud => "Cloud",
+        CandidateKind::Shortcut => "Shortcut",
+        CandidateKind::Emoji => "Emoji",
+        CandidateKind::Kaomoji => "Kaomoji",
+        CandidateKind::Symbol => "Symbol",
+        CandidateKind::Sentence => "Sentence",
+        CandidateKind::Generated => "Generated",
+        CandidateKind::Custom(position) => return format!("Custom({position})"),
+    }
+    .to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_emoji_without_syllables_still_answers_the_whole_key() {
+        // 英文词带出来的 emoji 没有音节，上屏时吃掉整段作用域
+        assert!(answers_whole_key(CandidateKind::Emoji, 0, 3, true));
+        // 而跟在中文词后面、有音节的那种按音节吃
+        assert!(answers_whole_key(CandidateKind::Emoji, 3, 3, true));
+        assert!(!answers_whole_key(CandidateKind::Emoji, 2, 3, true));
+    }
+
+    #[test]
+    fn a_dictionary_word_answers_the_key_only_when_it_covers_every_syllable() {
+        // `kaifayueding` 的 开发 只是前缀，不是这个键的答案
+        assert!(!answers_whole_key(CandidateKind::Chinese, 2, 4, true));
+        assert!(answers_whole_key(CandidateKind::Chinese, 4, 4, true));
+        // 末尾有切不动的字母时，没有候选吃满
+        assert!(!answers_whole_key(CandidateKind::Chinese, 4, 4, false));
+    }
+
+    #[test]
+    fn whole_scope_kinds_answer_the_key_without_syllables() {
+        for kind in [
+            CandidateKind::Code,
+            CandidateKind::English,
+            CandidateKind::Cloud,
+            CandidateKind::Shortcut,
+            CandidateKind::Generated,
+            CandidateKind::Custom(1),
+        ] {
+            assert!(answers_whole_key(kind, 0, 3, true), "{kind:?}");
+        }
+    }
 }
 
 /// 整句评测的错误。

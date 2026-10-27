@@ -13,8 +13,11 @@ members = [
     "crates/qingjian-render",
     "crates/bamboo-slip",
     "crates/qingjian-update",
-    "apps/linux/server", "apps/cli", "apps/settings", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
+    "apps/linux/server", "apps/cli", "apps/settings", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign", "tools/ime-lm-rerank",
 ]
+# vendor 下的第三方参考实现以 path 依赖方式引用，但不收进成员：它自带一套 lint 约定，
+# 套上青简的 workspace lints 会误伤。见 vendor/chinese-ime-lm/README.md。
+exclude = ["vendor"]
 
 [workspace.package]
 version = "0.1.1"
