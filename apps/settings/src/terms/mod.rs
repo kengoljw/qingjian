@@ -11,6 +11,7 @@ use crate::system::paths;
 
 pub mod blocked;
 pub mod editor;
+pub mod import;
 
 pub use editor::TermEditor;
 
@@ -132,6 +133,36 @@ impl Terms {
             Some(tag) => tag_of(term) == tag,
         })
     }
+}
+
+/// 粘贴导入卡片的状态。
+#[derive(Debug, Default)]
+pub struct TermPaste {
+    pub error: Option<String>,
+
+    /// 上次导入的结果：（新增条数，跳过条数）。
+    pub result: Option<(usize, usize)>,
+}
+
+/// 搜索词是否命中：词面 / 读音 / 各语种译名 / 其他译法的子串，大小写不敏感。
+pub fn matches(term: &Term, query: &str) -> bool {
+    let query = query.trim().to_lowercase();
+    if query.is_empty() {
+        return true;
+    }
+    let haystacks = [
+        &term.word,
+        &term.reading,
+        &term.english,
+        &term.other,
+        &term.japanese,
+        &term.spanish,
+        &term.french,
+        &term.korean,
+    ];
+    haystacks
+        .iter()
+        .any(|text| text.to_lowercase().contains(&query))
 }
 
 /// 没打标签的归到「未分类」。

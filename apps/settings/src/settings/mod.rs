@@ -97,6 +97,12 @@ pub struct Settings {
     /// 开着的术语编辑卡片。
     pub term: Option<crate::terms::TermEditor>,
 
+    /// 术语页的搜索词（词面 / 译名 / 读音子串）。
+    pub term_query: String,
+
+    /// 开着的粘贴导入卡片。
+    pub term_paste: Option<crate::terms::TermPaste>,
+
     /// 统计页的数，进统计页时读。
     pub stats: Option<Stats>,
 
@@ -176,6 +182,8 @@ impl Settings {
             term_tag: None,
             term_lang: crate::terms::Lang::En,
             term: None,
+            term_query: String::new(),
+            term_paste: None,
             waker: None,
             search: Search::default(),
             ctrl_space: system_ctrl_space(),

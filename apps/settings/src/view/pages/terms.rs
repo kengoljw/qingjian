@@ -71,17 +71,51 @@ pub fn terms(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     if page.settings.term.is_some() {
         editor(ui, page)?;
     }
+    if page.settings.term_paste.is_some() {
+        paste_dialog(ui, page)?;
+    }
     Ok(out)
 }
 
-/// 第一行：新增按钮 + 显示语种。
+/// 顶部三行：搜索、新增与粘贴导入、显示译名。
 fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
+    let mut rows = Vec::new();
+
+    if let Some(field) = page.settings.fields.get(&FieldId::TermSearch) {
+        let search = TextField::new(field)
+            .placeholder("词面 / 译名 / 读音")
+            .width(260.0)
+            .build(
+                ui,
+                theme,
+                "term-search",
+                |edit| Message::Edit(FieldId::TermSearch, edit),
+                None,
+                None,
+            )?;
+        rows.push(SettingRow::new("搜索").control(search).build(ui, theme)?);
+    }
+
     let add = Button::new("新增…").build(ui, theme, "add-term", Message::OpenTerm(None))?;
-    let add = SettingRow::new("新增术语")
-        .info("词面必填；读音留空就只参与英文注解、不进拼音候选")
-        .control(add)
-        .build(ui, theme)?;
+    let paste = Button::new("粘贴导入…").build(ui, theme, "paste-terms", Message::OpenTermPaste)?;
+    let buttons = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            align_items: Some(AlignItems::CENTER),
+            gap: page.gap(8.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &[add, paste],
+    )?;
+    rows.push(
+        SettingRow::new("术语")
+            .info("词面必填；读音留空就只参与英文注解、不进拼音候选")
+            .control(buttons)
+            .build(ui, theme)?,
+    );
+
     let lang = choice(
         ui,
         page,
@@ -91,8 +125,8 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         Lang::label,
         Message::TermLang,
     )?;
-    let lang = SettingRow::new("显示译名").control(lang).build(ui, theme)?;
-    group(ui, theme, &[add, lang])
+    rows.push(SettingRow::new("显示译名").control(lang).build(ui, theme)?);
+    group(ui, theme, &rows)
 }
 
 /// 标签筛选：全部 + 各标签（带条数），当前选中的高亮。
@@ -149,9 +183,13 @@ fn chip(
 fn list_body(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
     let filter = page.settings.term_tag.as_deref();
-    let matches = |term: &qingjian_platform::terms::Term| match filter {
-        None => true,
-        Some(tag) => crate::terms::tag_of(term) == tag,
+    let query = page.settings.term_query.as_str();
+    let matches = |term: &qingjian_platform::terms::Term| {
+        crate::terms::matches(term, query)
+            && match filter {
+                None => true,
+                Some(tag) => crate::terms::tag_of(term) == tag,
+            }
     };
     let total = list.entries.iter().filter(|term| matches(term)).count();
     let mut rows = Vec::new();
@@ -377,4 +415,89 @@ fn text(
         },
         &[],
     )
+}
+
+/// 粘贴导入卡片：一行一个词。
+fn paste_dialog(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
+    let theme = &page.theme;
+    let Some(paste) = &page.settings.term_paste else {
+        return Ok(());
+    };
+    let Some(field) = page.settings.fields.get(&FieldId::TermPaste) else {
+        return Ok(());
+    };
+    let title = ui.scene().node(
+        Style::default(),
+        Visual::Text {
+            text: "粘贴导入".to_owned(),
+            style: theme.text(theme.font.size + 2.0, 600, theme.colors.text),
+        },
+        &[],
+    )?;
+    let hint = paragraph(
+        ui,
+        theme,
+        "一行一个词，后面可以跟读音、标签、英文，用制表符分隔；同名的跳过（保留原来那条）。例：\n中间验收⇥zhong jian yan shou⇥项目管理⇥intermediate inspection",
+        None,
+    )?;
+    let text = TextField::new(field)
+        .placeholder("一行一个词…")
+        .width(DIALOG_WIDTH - 60.0)
+        .rows(8)
+        .build(
+            ui,
+            theme,
+            "term-paste",
+            |edit| Message::Edit(FieldId::TermPaste, edit),
+            None,
+            None,
+        )?;
+    let mut children = vec![title, hint, text];
+    if let Some(error) = &paste.error {
+        children.push(paragraph(ui, theme, error, None)?);
+    }
+    if let Some((added, skipped)) = paste.result {
+        children.push(paragraph(
+            ui,
+            theme,
+            &format!("已导入 {added} 条，跳过 {skipped} 条同名的；关掉卡片就能看到。"),
+            None,
+        )?);
+    }
+    let spacer = ui.scene().node(
+        Style {
+            flex_grow: 1.0,
+            size: Size {
+                width: Dimension::auto(),
+                height: Dimension::auto(),
+            },
+            ..Style::default()
+        },
+        Visual::Group,
+        &[],
+    )?;
+    let cancel =
+        Button::new("关闭").build(ui, theme, "term-paste-close", Message::CloseTermPaste)?;
+    let import = Button::new("导入").primary().build(
+        ui,
+        theme,
+        "term-paste-import",
+        Message::ImportTerms,
+    )?;
+    let buttons = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            align_items: Some(AlignItems::CENTER),
+            gap: page.gap(8.0),
+            margin: Rect {
+                top: LengthPercentageAuto::length(page.px(4.0)),
+                ..Rect::zero()
+            },
+            ..Style::default()
+        },
+        Visual::Group,
+        &[spacer, cancel, import],
+    )?;
+    children.push(buttons);
+    dialog(ui, theme, "term-paste-dialog", DIALOG_WIDTH, &children)
 }

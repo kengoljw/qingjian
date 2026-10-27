@@ -45,12 +45,18 @@ impl App for Settings {
                 self.recording = None;
                 self.close_phrase();
                 self.close_term();
+                self.close_term_paste();
                 if page == PageId::Dictionaries {
                     self.library = Library::scan();
                 }
                 if page == PageId::Terms {
                     self.terms = Some(crate::terms::Terms::load());
                     self.term_tag = None;
+                    self.term_query.clear();
+                    self.fields.insert(
+                        FieldId::TermSearch,
+                        bamboo_slip::TextEdit::new(String::new()),
+                    );
                 }
                 if page == PageId::Stats {
                     self.stats = Some(Stats::load(&self.config.general));
@@ -130,6 +136,13 @@ impl App for Settings {
                 {
                     bamboo_slip::set_clipboard(&copied);
                 }
+                if id == FieldId::TermSearch {
+                    self.term_query = self
+                        .fields
+                        .get(&id)
+                        .map(|field| field.text().to_owned())
+                        .unwrap_or_default();
+                }
             }
             Message::CheckUpdate => {
                 if !self.update.running() {
@@ -206,6 +219,9 @@ impl App for Settings {
                     self.save_term(true);
                 }
             }
+            Message::OpenTermPaste => self.open_term_paste(),
+            Message::CloseTermPaste => self.close_term_paste(),
+            Message::ImportTerms => self.import_terms(),
             Message::TermCandidates(on) => {
                 if let Some(editor) = self.term.as_mut() {
                     editor.in_candidates = on;

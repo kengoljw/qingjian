@@ -94,6 +94,9 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     click(&mut runner, Key::ROOT.child("add-term"))?;
     shot(&mut runner, "术语：点「新增」弹出编辑卡片")?;
     click(&mut runner, Key::ROOT.child("term-cancel"))?;
+    click(&mut runner, Key::ROOT.child("paste-terms"))?;
+    shot(&mut runner, "术语：点「粘贴导入」")?;
+    click(&mut runner, Key::ROOT.child("term-paste-close"))?;
 
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Advanced))?;
     click(&mut runner, Key::ROOT.child("clear-input-log"))?;

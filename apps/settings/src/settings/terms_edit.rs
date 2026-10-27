@@ -5,7 +5,7 @@ use qingjian_platform::terms::Term;
 
 use super::Settings;
 use crate::message::FieldId;
-use crate::terms::{Lang, TermEditor, path, save};
+use crate::terms::{Lang, TermEditor, TermPaste, path, save};
 
 /// 某个语种对应卡片里的哪个输入框。
 fn field_of(lang: Lang) -> FieldId {
@@ -60,6 +60,71 @@ impl Settings {
         self.term = None;
         for id in FIELDS {
             self.fields.remove(&id);
+        }
+    }
+
+    pub(super) fn open_term_paste(&mut self) {
+        self.fields
+            .insert(FieldId::TermPaste, TextEdit::multiline(String::new()));
+        self.term_paste = Some(TermPaste::default());
+    }
+
+    pub(super) fn close_term_paste(&mut self) {
+        self.term_paste = None;
+        self.fields.remove(&FieldId::TermPaste);
+    }
+
+    /// 把粘贴框里的一行一词并进表：同名的跳过，整表写回。
+    pub(super) fn import_terms(&mut self) {
+        let Some(list) = self.terms.as_ref() else {
+            return;
+        };
+        let text = self
+            .fields
+            .get(&FieldId::TermPaste)
+            .map(|field| field.text().to_owned())
+            .unwrap_or_default();
+        let incoming = crate::terms::import::parse(&text);
+        if incoming.is_empty() {
+            if let Some(paste) = self.term_paste.as_mut() {
+                paste.error = Some(
+                    "一行也没读到：一行一个词，后面可以跟读音 / 标签 / 英文（制表符分隔）"
+                        .to_owned(),
+                );
+                paste.result = None;
+            }
+            return;
+        }
+        let imported: Vec<String> = incoming.iter().map(|term| term.word.clone()).collect();
+        let mut entries = list.entries.clone();
+        let (added, skipped) = crate::terms::import::merge(&mut entries, incoming);
+        let saved = path()
+            .ok_or_else(|| "找不到用户数据目录".to_owned())
+            .and_then(|path| save(&path, &entries));
+        match saved {
+            Ok(()) => {
+                for word in imported {
+                    if let Err(error) = crate::terms::blocked::remove(&word) {
+                        tracing::warn!(%error, "清屏蔽表失败");
+                    }
+                }
+                let blocked = crate::terms::blocked::words().len();
+                if let Some(list) = self.terms.as_mut() {
+                    list.entries = entries;
+                    list.blocked = blocked;
+                    list.error = None;
+                }
+                if let Some(paste) = self.term_paste.as_mut() {
+                    paste.error = None;
+                    paste.result = Some((added, skipped));
+                }
+            }
+            Err(error) => {
+                if let Some(paste) = self.term_paste.as_mut() {
+                    paste.error = Some(error);
+                    paste.result = None;
+                }
+            }
         }
     }
 

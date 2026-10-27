@@ -66,6 +66,10 @@ pub enum Message {
     CloseTerm,
     /// 卡片里的「进拼音候选」开关。
     TermCandidates(bool),
+    /// 打开粘贴导入卡片。
+    OpenTermPaste,
+    ImportTerms,
+    CloseTermPaste,
     /// 选文件导入词库或码表。
     Import(Kind),
     /// 移除用户导入的一本（文件名不含扩展名）。

@@ -16,6 +16,8 @@ pub enum FieldId {
     TermSpanish,
     TermFrench,
     TermKorean,
+    TermSearch,
+    TermPaste,
 }
 
 impl FieldId {
@@ -38,6 +40,8 @@ impl FieldId {
             Self::TermSpanish => "spanish",
             Self::TermFrench => "french",
             Self::TermKorean => "korean",
+            Self::TermSearch => "search",
+            Self::TermPaste => "paste",
         }
     }
 }
