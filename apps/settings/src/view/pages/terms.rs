@@ -6,8 +6,8 @@ use bamboo_slip::taffy::{
     Rect, Size, Style,
 };
 use bamboo_slip::{
-    Button, Checkbox, RenderError, SettingRow, Switch, TextField, Ui, Visual, dialog, group,
-    paragraph, section_title,
+    Button, Checkbox, RenderError, ScrollArea, SettingRow, Switch, TextField, Ui, Visual, dialog,
+    group, paragraph, section_title,
 };
 
 use crate::message::{FieldId, Message};
@@ -23,51 +23,25 @@ const DIALOG_WIDTH: f32 = 460.0;
 
 pub fn terms(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
-    let mut out = Vec::new();
-    out.push(section_title(ui, theme, "个人术语表")?);
+    let mut fixed = Vec::new();
+    fixed.push(section_title(ui, theme, "个人术语表")?);
 
     let Some(list) = page.settings.terms.as_ref() else {
-        out.push(paragraph(
+        fixed.push(paragraph(
             ui,
             theme,
             "还没读到术语表。进这一页时会读用户目录里的 user-terms.tsv。",
             None,
         )?);
-        return Ok(out);
+        return Ok(fixed);
     };
 
-    out.push(paragraph(
-        ui,
-        theme,
-        &format!(
-            "共 {} 条，其中 {} 条参与拼音候选。术语只参与排序、不置顶；改动写回 {}（写前自动备份）。",
-            list.entries.len(),
-            list.usable(),
-            crate::terms::path()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| "user-terms.tsv".to_owned())
-        ),
-        None,
-    )?);
-    if let Some(error) = &list.error {
-        out.push(paragraph(ui, theme, error, None)?);
-    }
-    if list.blocked > 0 {
-        out.push(paragraph(
-            ui,
-            theme,
-            &format!(
-                "屏蔽表 {} 个词：删掉的词不会再被自动学习加回来（重新加进术语表会自动解除）。",
-                list.blocked
-            ),
-            None,
-        )?);
-    }
-
-    out.push(header(ui, page)?);
-    out.push(chips(ui, page, list)?);
-    out.push(pending_section(ui, page)?);
-    out.push(list_body(ui, page, list)?);
+    fixed.push(tabs(ui, page, list)?);
+    let body = match page.settings.term_tab {
+        crate::terms::TermTab::List => list_tab(ui, page, list)?,
+        crate::terms::TermTab::Pending => pending_tab(ui, page)?,
+    };
+    fixed.push(body);
 
     if page.settings.term.is_some() {
         editor(ui, page)?;
@@ -75,7 +49,134 @@ pub fn terms(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     if page.settings.term_paste.is_some() {
         paste_dialog(ui, page)?;
     }
-    Ok(out)
+
+    // 固定高度的一列：顶部（标题 + 页签）不动，下面的页签内容自己滚
+    let column = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Column,
+            gap: page.gap(8.0),
+            size: Size {
+                width: Dimension::percent(1.0),
+                height: Dimension::length(page.content_height),
+            },
+            ..Style::default()
+        },
+        Visual::Group,
+        &fixed,
+    )?;
+    Ok(vec![column])
+}
+
+/// 页签：术语列表 / 待确认译名（带条数）。
+fn tabs(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let waiting = page
+        .settings
+        .pending
+        .iter()
+        .filter(|row| row.status == crate::terms::pending::Status::Waiting)
+        .count();
+    let mut buttons = Vec::new();
+    for (tab, code, label) in [
+        (
+            crate::terms::TermTab::List,
+            "list",
+            format!("术语列表 {}", list.entries.len()),
+        ),
+        (
+            crate::terms::TermTab::Pending,
+            "pending",
+            format!("待确认 {waiting}"),
+        ),
+    ] {
+        let selected = page.settings.term_tab == tab;
+        let mut button = Button::new(&label);
+        if selected {
+            button = button.primary();
+        }
+        buttons.push(button.build(ui, theme, format!("term-tab-{code}"), Message::TermTab(tab))?);
+    }
+    ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            align_items: Some(AlignItems::CENTER),
+            gap: page.gap(8.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &buttons,
+    )
+}
+
+/// 术语列表页签：搜索 / 生成 / 新增 / 标签固定，只有列表滚。
+fn list_tab(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let mut fixed = Vec::new();
+    let mut summary = format!(
+        "共 {} 条 · 参与拼音候选 {} 条",
+        list.entries.len(),
+        list.usable()
+    );
+    if list.blocked > 0 {
+        summary.push_str(&format!(" · 屏蔽表 {} 条", list.blocked));
+    }
+    fixed.push(paragraph(ui, theme, &summary, None)?);
+    fixed.push(header(ui, page)?);
+    fixed.push(chips(ui, page, list)?);
+    if let Some(error) = &list.error {
+        fixed.push(paragraph(ui, theme, error, None)?);
+    }
+    let body = list_body(ui, page, list)?;
+    let scroll = ScrollArea::new(Style {
+        flex_grow: 1.0,
+        min_size: Size {
+            width: LengthPercentageAuto::length(0.0),
+            height: LengthPercentageAuto::length(0.0),
+        },
+        ..Style::default()
+    })
+    .build(ui, theme, ("terms-scroll", "list"), body)?;
+    fixed.push(scroll);
+    ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Column,
+            flex_grow: 1.0,
+            gap: page.gap(6.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &fixed,
+    )
+}
+
+/// 待确认页签：生成按钮与提示固定，待确认列表滚。
+fn pending_tab(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let mut fixed = Vec::new();
+    if let Some(notice) = &page.settings.term_notice {
+        fixed.push(paragraph(ui, theme, notice, None)?);
+    }
+    let body = pending_section(ui, page)?;
+    let scroll = ScrollArea::new(Style {
+        flex_grow: 1.0,
+        min_size: Size {
+            width: LengthPercentageAuto::length(0.0),
+            height: LengthPercentageAuto::length(0.0),
+        },
+        ..Style::default()
+    })
+    .build(ui, theme, ("terms-scroll", "pending"), body)?;
+    fixed.push(scroll);
+    ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Column,
+            flex_grow: 1.0,
+            gap: page.gap(6.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &fixed,
+    )
 }
 
 /// 顶部三行：搜索、新增与粘贴导入、显示译名。

@@ -100,6 +100,9 @@ pub struct Settings {
     /// 术语页的搜索词（词面 / 译名 / 读音子串）。
     pub term_query: String,
 
+    /// 术语页在哪个页签。
+    pub term_tab: crate::terms::TermTab,
+
     /// 开着的粘贴导入卡片。
     pub term_paste: Option<crate::terms::TermPaste>,
 
@@ -195,6 +198,7 @@ impl Settings {
             term_lang: crate::terms::Lang::En,
             term: None,
             term_query: String::new(),
+            term_tab: crate::terms::TermTab::List,
             term_paste: None,
             pending: Vec::new(),
             gloss: crate::terms::gloss::TermGloss::new(),

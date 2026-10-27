@@ -203,6 +203,7 @@ impl App for Settings {
                 }
             }
             Message::ToggleSources => self.sources_open = !self.sources_open,
+            Message::TermTab(tab) => self.term_tab = tab,
             Message::TermTag(tag) => self.term_tag = tag,
             Message::TermLang(lang) => self.term_lang = lang,
             Message::OpenTerm(index) => self.open_term(index),

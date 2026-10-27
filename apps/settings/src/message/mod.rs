@@ -55,6 +55,8 @@ pub enum Message {
     /// 列表里直接开关第 i 条。
     TogglePhrase(usize),
     /// 术语页按标签筛（None 全部）。
+    /// 术语页切页签。
+    TermTab(crate::terms::TermTab),
     TermTag(Option<String>),
     /// 术语页显示哪个语种的译名。
     TermLang(Lang),

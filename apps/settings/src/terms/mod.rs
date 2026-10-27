@@ -143,6 +143,16 @@ impl Terms {
     }
 }
 
+/// 术语页的两个页签。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TermTab {
+    /// 列表：搜索、筛选、逐条改。
+    #[default]
+    List,
+    /// 待确认的译名。
+    Pending,
+}
+
 /// 粘贴导入卡片的状态。
 #[derive(Debug, Default)]
 pub struct TermPaste {

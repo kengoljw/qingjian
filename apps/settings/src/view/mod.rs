@@ -50,6 +50,7 @@ pub fn view(
         palette,
         scale,
         content_width: width as f32 - (sidebar::WIDTH + CONTENT_PADDING * 2.0) * scale,
+        content_height: height as f32 - (TITLEBAR + 12.0 + 28.0) * scale,
     };
     let current = settings.page;
     ui.info_links("点一下 ⓘ 打开文档", move |title| {
@@ -105,6 +106,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
         palette: &LIGHT,
         scale: 1.0,
         content_width: 600.0,
+        content_height: 800.0,
     };
     let mut entries = Vec::new();
     for id in PageId::ALL {
