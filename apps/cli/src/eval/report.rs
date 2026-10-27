@@ -18,6 +18,9 @@ pub struct Report {
     /// 拼音现在切不动的句子数。
     pub unparsable: usize,
 
+    /// 原句出现在候选里（不管第几位）。与 `top1` 的差是排序缺口，与 `evaluated` 的差是覆盖缺口。
+    pub covered: usize,
+
     /// 首选就是原句。
     pub top1: usize,
 
@@ -63,14 +66,24 @@ impl fmt::Display for Report {
         let evaluated = self.evaluated();
         writeln!(
             f,
-            "句子 {:>5} 条  首选 {:>6}  前三 {:>6}  前五 {:>6}  整句候选 {:>6}  字准确率 {:>6}",
+            "句子 {:>5} 条  覆盖 {:>6}  首选 {:>6}  前三 {:>6}  前五 {:>6}  整句候选 {:>6}  字准确率 {:>6}",
             self.total,
+            percent(self.covered, evaluated),
             percent(self.top1, evaluated),
             percent(self.top3, evaluated),
             percent(self.top5, evaluated),
             percent(self.sentence_hit, evaluated),
             percent(self.chars_correct, self.chars_total),
         )?;
+        if evaluated > 0 {
+            // 两个缺口的含义不同：覆盖缺口是词库 / 建图没造出原句，排序缺口是造出来了却没排第一。
+            writeln!(
+                f,
+                "覆盖缺口 {:>6}（原句不在候选里）  排序缺口 {:>6}（在候选里但不是首选）",
+                percent(evaluated - self.covered, evaluated),
+                percent(self.covered - self.top1, evaluated),
+            )?;
+        }
         if evaluated > 0 {
             writeln!(
                 f,

@@ -171,6 +171,9 @@ fn evaluate(
     if position == Some(0) {
         report.top1 += 1;
     }
+    if position.is_some() {
+        report.covered += 1;
+    }
     if let Some(rank) = position {
         report.top3 += usize::from(rank < 3);
         report.top5 += usize::from(rank < 5);
