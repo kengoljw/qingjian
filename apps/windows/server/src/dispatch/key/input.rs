@@ -109,9 +109,14 @@ impl Router {
     /// 退格 / Esc / 回车 / Tab / 方向键；没在组句时都交还应用。
     fn apply_function_key(&mut self, event: &KeyEvent) -> Effect {
         if !self.composing() {
-            // 回车交给应用：文本流里是一个段落边界（macOS 壳同样记）
-            if event.virtual_key == codes::RETURN {
-                self.engine.note_passthrough('\n');
+            match event.virtual_key {
+                // 回车交给应用：文本流里是一个段落边界（macOS 壳同样记）
+                codes::RETURN => self.engine.note_passthrough('\n'),
+                // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号（macOS 壳同样记）。
+                // 少了这一步，选错的词就永远留在 user-choices / 个人 n-gram 里，
+                // `ne` 下误上屏的 那 越攒越多，正经想打的 呢 再也升不上来。
+                codes::BACK => self.engine.note_backspace(),
+                _ => {}
             }
             return Effect::Passthrough;
         }

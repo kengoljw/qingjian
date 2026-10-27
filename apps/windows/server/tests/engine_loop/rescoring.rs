@@ -7,8 +7,14 @@ fn local_model_rescoring_reorders_sentence_after_pause() {
     // k 优路径按末词分状态，几条路径要在末词上不同才都留下来：ni + ta → 你他 / 你她 / 你它
     let mut router = router_with_scorer("你它");
     let (_, _, frame) = type_letters(&mut router, "nita");
-    // 按键时只按词级模型：他 的词频高，首选是「你他」
-    assert_eq!(candidate_texts(&frame).first(), Some(&"你他"));
+    // 按键时只按词级模型出候选；整句的分还没回来，所以整句排在词级候选后面（`Candidate::settled`）：
+    // 别让用户先看到一条过会儿会自己变的首选
+    assert_eq!(candidate_texts(&frame).first(), Some(&"你"));
+    assert!(
+        candidate_texts(&frame).contains(&"你他"),
+        "整句候选仍要在表里，实际：{:?}",
+        candidate_texts(&frame)
+    );
     // 在等防抖，工人循环该在 80 ms 内醒来
     assert!(router.next_tick() <= std::time::Duration::from_millis(80));
 
@@ -29,10 +35,13 @@ fn local_model_does_not_touch_a_navigated_page() {
     type_letters(&mut router, "nita");
     // 用户动过高亮：模型的结果只留在缓存里，不换正在看的这页
     let (_, _, frame) = press(&mut router, KeyEvent::new(0x28, None, Default::default())); // VK_DOWN
-    assert_eq!(candidate_texts(&frame).first(), Some(&"你他"));
+    let shown = candidate_texts(&frame)[0].to_owned();
     // 防抖 80 ms + 假模型立即回分，300 ms 足够等到结果；首选仍是原来的
     let frame = tick_until_first(&mut router, "你它", std::time::Duration::from_millis(300));
-    assert_eq!(candidate_texts(&frame).first(), Some(&"你他"));
+    assert_eq!(
+        candidate_texts(&frame).first().copied(),
+        Some(shown.as_str())
+    );
 }
 
 #[test]

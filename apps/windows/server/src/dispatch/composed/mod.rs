@@ -556,6 +556,7 @@ fn empty_cell() -> Candidate {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     }
 }
 

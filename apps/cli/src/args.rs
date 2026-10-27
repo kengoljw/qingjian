@@ -118,6 +118,10 @@ pub struct Args {
     #[arg(long)]
     pub neural_async: bool,
 
+    /// 同时把**首帧**（重排结果还没回来那一帧，即壳里用户最先看到的那一屏）打出来，配 `--neural-async` 看时序
+    #[arg(long)]
+    pub frame: bool,
+
     /// 逐键模式：把每个输入当作一键一键敲进去，每个前缀都查一次，打印每键各阶段耗时（性能测试用）
     #[arg(long)]
     pub typing: bool,
