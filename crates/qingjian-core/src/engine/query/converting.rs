@@ -167,6 +167,7 @@ impl Engine {
                 }
                 items.remove(index);
             }
+            let settled = self.sentence_settled(&conversion.text);
             out.push(Candidate {
                 text: conversion.text,
                 kind,
@@ -174,6 +175,7 @@ impl Engine {
                 reading: None,
                 translation: None,
                 aux_code: None,
+                settled,
             });
         }
         out

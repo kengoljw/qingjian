@@ -46,6 +46,35 @@ fn erasing_the_last_commit_and_choosing_another_word_retracts_its_learning() {
 }
 
 #[test]
+fn erasing_a_wrong_single_character_retracts_the_choice_that_kept_it_first() {
+    // 用户报障的场景：`ne` 下误上屏 那（它因此在 user-choices 里攒次数、越攒越靠前），
+    // 退格删掉重选 呢 —— 那次 那 必须从「这个输入串下选过」的记录里退回去，否则 呢 永远翻不了身。
+    let dictionary = Dictionary::parse("那\tne\t31387\n呢\tne\t539480\n").unwrap();
+    let mut engine =
+        Engine::new(dictionary).with_learner(Box::new(CountingLearner(HashMap::new())));
+    let pick = |engine: &mut Engine, input: &str, text: &str| {
+        engine.set_input(input);
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == text && c.kind == CandidateKind::Chinese)
+            .unwrap();
+        engine.commit(&candidate);
+    };
+    pick(&mut engine, "ne", "那");
+    assert_eq!(engine.learner().choice_weight("ne", "那"), 1);
+    // 壳在缓冲区为空时收到退格 → Engine 记一笔（Windows 壳以前漏了这一步）
+    engine.note_backspace();
+    pick(&mut engine, "ne", "呢");
+    assert_eq!(engine.learner().choice_weight("ne", "那"), 0);
+    assert_eq!(engine.learner().choice_weight("ne", "呢"), 1);
+    assert_eq!(engine.learner().weight("那"), 0);
+}
+
+#[test]
 fn erasing_several_commits_and_retyping_retracts_the_wrong_one() {
     let mut engine = engine().with_learner(Box::new(CountingLearner(HashMap::new())));
     let pick = |engine: &mut Engine, input: &str, text: &str| {
@@ -527,6 +556,7 @@ fn committing_the_translation_learns_the_word_and_returns_the_gloss() {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     };
     assert_eq!(engine.commit_translation(&zhe, 0), None);
     assert_eq!(engine.composition().text(), "zhe");

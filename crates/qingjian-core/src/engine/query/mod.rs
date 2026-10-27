@@ -50,6 +50,7 @@ impl Engine {
         if self.aux_filter().is_none() {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
+        show_settled_first(&mut query.candidates.items);
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
             Some(correction) => correction.segmentation.joined("'"),
@@ -112,6 +113,34 @@ pub(super) fn chinese_candidate(item: &Scored<'_>, aux_code: Option<&str>) -> Ca
         reading: None,
         translation: None,
         aux_code: aux_code.map(str::to_owned),
+        settled: true,
+    }
+}
+
+/// 还没等到神经分的整句候选（`Candidate::settled` 为假）排到词级候选后面。
+///
+/// 异步重排的接法下，首帧的整句顺序只有静态二元模型说了算，重排回来才可能整个换掉：用户打 `diyi`，
+/// 第一帧 的一 顶在最前面，过一会儿才变 第一（`第一` 成为最优后整句候选更会整条消失）。
+/// 用户盯着的那条自己变了，比一开始就排在第二难受得多；而词库里整词 `di yi` 的 第一 本来就是稳的。
+///
+/// 只挪**给出**的顺序，不动生成时的位置：整句候选排在词级候选前面，`limit` 截断时先被砍掉的就是它们，
+/// 挪到后面去等于把它们挤出候选表，重排回来也没东西可换（`local_model_rescoring_reorders_sentence_after_pause` 就是这么挂的）。
+pub(super) fn show_settled_first(items: &mut [Candidate]) {
+    if items.iter().all(|c| c.settled) {
+        return;
+    }
+    let mut ordered: Vec<Candidate> = Vec::with_capacity(items.len());
+    let mut pending: Vec<Candidate> = Vec::new();
+    for candidate in items.iter() {
+        if candidate.settled {
+            ordered.push(candidate.clone());
+        } else {
+            pending.push(candidate.clone());
+        }
+    }
+    ordered.extend(pending);
+    for (slot, candidate) in items.iter_mut().zip(ordered) {
+        *slot = candidate;
     }
 }
 

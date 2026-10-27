@@ -12,6 +12,7 @@ mod automatic {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         }
     }
 
@@ -153,6 +154,7 @@ mod manual {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         }
     }
 

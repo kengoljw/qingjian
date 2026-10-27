@@ -48,6 +48,7 @@ impl Catalog {
                 reading: name_field.filter(|n| !n.is_empty()).map(str::to_owned),
                 translation: None,
                 aux_code: None,
+                settled: true,
             };
             index
                 .entry(item.text.clone())

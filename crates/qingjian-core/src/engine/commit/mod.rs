@@ -358,6 +358,7 @@ impl Engine {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         };
         let reading = reading_key(candidate.syllables.iter().map(String::as_str));
         self.learner.record_choice(&key, &reading, &candidate.text);
@@ -697,6 +698,7 @@ impl Engine {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         };
         if self.knows_word(&candidate) {
             return;

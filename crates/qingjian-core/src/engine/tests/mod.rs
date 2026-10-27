@@ -366,6 +366,16 @@ impl LanguageModel for BaModel {
             _ => None,
         }
     }
+
+    /// 词级排序用「条件概率减一元概率」当上文增益（见 `sentence::context_lift`），所以一元分要跟句首分对得上。
+    /// 把 的句首 −3.0 就是它的一元；吧 在句首低（−7.0），一元取中间值，句首那一格它仍排在 把 后面。
+    fn unigram_log_prob(&self, word: &str) -> Option<f64> {
+        match word {
+            "把" => Some(-3.0),
+            "吧" => Some(-5.0),
+            _ => None,
+        }
+    }
 }
 
 fn texts_of(engine: &Engine) -> Vec<String> {

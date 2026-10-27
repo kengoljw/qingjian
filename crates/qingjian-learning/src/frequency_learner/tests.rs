@@ -8,6 +8,7 @@ fn candidate(text: &str) -> Candidate {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     }
 }
 
@@ -82,6 +83,7 @@ fn unrecord_reverses_each_kind_of_record() {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     };
     learner.record(&candidate);
     learner.record_choice("kaifa", "", "开放");

@@ -69,6 +69,7 @@ impl Engine {
                 reading: None,
                 translation: None,
                 aux_code: None,
+                settled: true,
             })
             .collect();
         let query = Query {

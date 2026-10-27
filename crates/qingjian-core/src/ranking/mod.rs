@@ -5,10 +5,13 @@
 //! 2. 覆盖输入字母多者优先（`kaif` → 开发者 排在 开 前）
 //! 3. 切分里非末尾的简拼音节少者优先（`kaifa` 按 `kai fa` 读的 开放 排在按 `kai f a` 读的 开放啊 前）
 //! 4. 最后一个音节完整匹配优先（`kaifa` → 开发 排在 开放 前）
-//! 5. 同一输入串下用户选过的次数（Learner 的 `choice_weight`：`mgs` 选过 美国式，下次 `mgs` 它就是首选）
-//! 6. 上下文得分：语言模型给的 `log P(词 | 上一个上屏的词)`（个人 bigram 插值，模型不认识的按词库词频兜底并扣分，
-//!    见 `sentence::transition_log_prob`）加用户选择次数的加分（[`weight_bonus`]，对数且封顶），模糊音命中扣 ln 2、
-//!    敲错变体命中扣那类敲错的代价（`correction::TypoKind::cost`，个人敲错表打折）。
+//! 5. 同一输入串下选过的词优先（Learner 的 `choice_weight`：`mgs` 选过 美国式，下次 `mgs` 它在选过的那几个里排前面）；
+//!    只比「选过没有」——次数多少走第 6 条的加分曲线，见 [`Scored::key`]
+//! 6. 上下文得分：词库读音词频打底（[`sentence::lexical_log_prob`]），加大语言模型的上下文增益
+//!    （[`sentence::context_lift`]：模型的条件概率减它自己的一元概率，模型不区分读音，直接拿它的先验会把
+//!    `ne` 下的 那 抬到 呢 之上——见 `sentence::word_log_prob`）；再加用户选择次数与同输入串选择次数的加分
+//!    （[`weight_bonus`]，对数且封顶），模糊音命中扣 ln 2、敲错变体命中扣那类敲错的代价
+//!    （`correction::TypoKind::cost`，个人敲错表打折）。
 //!    这样 `ba` 在「做了」后面出 吧、句首出 把；纯词频排序两处都只能出同一个
 //! 7. 敲的原音节优先，词长短者优先，最后按字符串稳定排序保证结果可复现
 //!
@@ -61,7 +64,9 @@ pub fn rank(
         .drain(..)
         .map(|item| {
             let (choice, log_prob) = context(&item);
-            let score = log_prob + weight_bonus(item.weight) - item.penalty;
+            // 这个输入串下选过的次数与全词次数用同一条曲线：选过就是偏好，选得多更有分量，但都封顶，
+            // 不至于像以前那样「选过一次就永远钉在第一」。
+            let score = log_prob + weight_bonus(item.weight) + weight_bonus(choice) - item.penalty;
             (item.key(choice, score), item)
         })
         .collect();
@@ -229,5 +234,132 @@ mod tests {
         rank(&mut items, usize::MAX, |_| (0, 0.0));
         assert_eq!(items.len(), 1);
         assert!(items[0].hit.exact);
+    }
+
+    /// 用户报障：「输入 ne 想出现 呢，却总排在 那 后面」。`ne` 下 那 与 呢 的结构项逐项相同（都是单字、
+    /// 都精确覆盖），只有分数能定序；而语言模型按词统计，它给 那 的先验（其实来自 `nà`）更高。
+    /// 用 `sentence::word_log_prob` 打出来的分（词库读音词频打底 + 上下文增益）必须让 呢 在前。
+    #[test]
+    fn common_word_beats_the_model_prior_at_equal_structure() {
+        use crate::sentence::{self, Context, LanguageModel, Personal};
+
+        /// 模型按词统计：那 常见、呢 少见；句首没有额外增益。
+        struct WordLevel;
+
+        impl LanguageModel for WordLevel {
+            fn log_prob(&self, _previous: Option<&str>, word: &str) -> Option<f64> {
+                Some(match word {
+                    "那" => -4.81,
+                    "呢" => -7.76,
+                    _ => return None,
+                })
+            }
+
+            fn unigram_log_prob(&self, word: &str) -> Option<f64> {
+                self.log_prob(None, word)
+            }
+        }
+
+        let log_total = 19.43;
+        let score = |text: &str, frequency: u32| {
+            sentence::word_log_prob(
+                &WordLevel,
+                Personal::NONE,
+                Context::START,
+                text,
+                frequency,
+                log_total,
+            )
+        };
+        // 词库读音词频：呢/ne 53.9 万，那/ne 3.1 万
+        let ni = score("呢", 539_480);
+        let na = score("那", 31_387);
+        assert!(ni > na, "呢 {ni} 应排在 那 {na} 前");
+
+        let mut items = vec![
+            Scored {
+                hit: hit("那", "ne", 31_387, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("呢", "ne", 539_480, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            },
+        ];
+        rank(&mut items, usize::MAX, |item| {
+            let score = if item.hit.text == "呢" { ni } else { na };
+            (0, score)
+        });
+        assert_eq!(items[0].hit.text, "呢");
+    }
+
+    /// 同一个输入串下选过的词仍要排前，但累计次数不能把常用字永远压在下面：
+    /// 用户误上屏 那 20 次、正经选 呢 15 次，呢 的词频高十七倍，该 呢 在前。
+    /// （以前选择次数是排序键里的一项，20 > 15 就把 那 钉死在第一。）
+    #[test]
+    fn choice_count_cannot_pin_a_mistake_above_a_much_commoner_word() {
+        let mut items = vec![
+            Scored {
+                hit: hit("那", "ne", 31_387, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("呢", "ne", 539_480, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            },
+        ];
+        // 那 选过 20 次、呢 15 次；分差按词频比给出（呢 高 2.84 分）
+        rank(&mut items, usize::MAX, |item| {
+            if item.hit.text == "那" {
+                (20, 0.0)
+            } else {
+                (15, 2.84)
+            }
+        });
+        assert_eq!(items[0].hit.text, "呢");
+
+        // 但「只在一个输入串下选过」仍然算数：都没被选过时，选过的那个排前
+        let mut items = vec![
+            Scored {
+                hit: hit("那", "ne", 31_387, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            },
+            Scored {
+                hit: hit("呢", "ne", 539_480, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            },
+        ];
+        rank(&mut items, usize::MAX, |item| {
+            if item.hit.text == "那" {
+                (1, 0.0)
+            } else {
+                (0, 0.0)
+            }
+        });
+        assert_eq!(items[0].hit.text, "那");
     }
 }

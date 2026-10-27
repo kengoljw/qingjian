@@ -153,12 +153,13 @@ impl Engine {
             let choice = letters
                 .get(..covered)
                 .map_or(0, |input| self.learner.choice_weight(input, hit.text));
-            let log_prob = sentence::transition_log_prob(
+            let log_prob = sentence::word_log_prob(
                 &*self.language_model,
                 self.personal(),
                 self.chain.context(),
                 hit.text,
-                sentence::fallback_log_prob(hit.frequency, log_total),
+                hit.frequency,
+                log_total,
             );
             (choice, log_prob)
         });

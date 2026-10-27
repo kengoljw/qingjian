@@ -37,6 +37,11 @@ fn engine() -> Engine {
     Engine::new(Dictionary::parse("开发\tkai fa\t9000\n").unwrap())
 }
 
+/// 同 [`engine`]，起个别名：测试里 `let engine = ...` 之后还要再要一个干净的引擎。
+fn fresh_engine() -> Engine {
+    engine()
+}
+
 fn texts(paths: &[Conversion]) -> Vec<&str> {
     paths.iter().map(|p| p.text.as_str()).collect()
 }
@@ -96,6 +101,30 @@ fn a_changed_context_discards_the_cached_scores() {
     engine.rescore_paths(&mut paths, KEYS);
     assert_eq!(texts(&paths), ["开饭", "开放"]);
     assert!(engine.rescoring_pending());
+}
+
+#[test]
+fn a_sentence_is_unsettled_until_its_neural_score_arrives() {
+    // 用户报障：打 `diyi`，第一帧 的一 顶在最前面，过一会儿才变 第一。
+    // 接异步重排时，分还没回来的整句要标成未定，壳据此不让它排在最前面。
+    let mut engine =
+        fresh_engine().with_async_sentence_scorer(Box::new(Prefers("开放")), Some(0.5), None, None);
+    assert!(!engine.sentence_settled("开饭"), "分还没回来时不能算定");
+    let mut paths = vec![path("开饭", -10.0), path("开放", -11.0)];
+    engine.rescore_paths(&mut paths, KEYS);
+    assert!(engine.request_rescoring());
+    let started = Instant::now();
+    while !engine.poll_rescoring() {
+        assert!(started.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(engine.sentence_settled("开饭"), "分回来之后就是定的");
+    // 同步打分器算出候选时就已经按神经分排过，不存在「等一会儿变」
+    let sync =
+        fresh_engine().with_sentence_scorer(Box::new(Prefers("开放")), Some(0.5), None, None);
+    assert!(sync.sentence_settled("开饭"));
+    // 没接重排：静态顺序就是终局
+    assert!(fresh_engine().sentence_settled("开饭"));
 }
 
 #[test]
