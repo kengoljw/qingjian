@@ -6,8 +6,8 @@ use bamboo_slip::taffy::{
     Rect, Size, Style,
 };
 use bamboo_slip::{
-    Button, RenderError, SettingRow, Switch, TextField, Ui, Visual, dialog, group, paragraph,
-    section_title,
+    Button, Checkbox, RenderError, SettingRow, Switch, TextField, Ui, Visual, dialog, group,
+    paragraph, section_title,
 };
 
 use crate::message::{FieldId, Message};
@@ -66,6 +66,7 @@ pub fn terms(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
 
     out.push(header(ui, page)?);
     out.push(chips(ui, page, list)?);
+    out.push(pending_section(ui, page)?);
     out.push(list_body(ui, page, list)?);
 
     if page.settings.term.is_some() {
@@ -96,6 +97,69 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
             )?;
         rows.push(SettingRow::new("搜索").control(search).build(ui, theme)?);
     }
+
+    // 要生成的语种 + 生成按钮
+    let mut lang_boxes = Vec::new();
+    for lang in crate::terms::pending::Lang::ALL {
+        let on = page
+            .settings
+            .gloss_langs
+            .iter()
+            .any(|code| *code == lang.code());
+        lang_boxes.push(Checkbox::new(on, lang.label()).build(
+            ui,
+            theme,
+            ("gloss-lang", lang.code()),
+            Message::ToggleGlossLang(lang.code()),
+        )?);
+    }
+    let marked_words = page
+        .settings
+        .terms
+        .as_ref()
+        .map(|list| list.marked.clone())
+        .unwrap_or_default();
+    let label = format!("生成译名（{} 条）", marked_words.len());
+    let generating = page.settings.gloss.running();
+    let mut generate = Button::new(if generating { "生成中…" } else { &label });
+    generate = if generating {
+        generate.disabled(true)
+    } else {
+        generate.primary()
+    };
+    let generate = generate.build(
+        ui,
+        theme,
+        "generate-gloss",
+        Message::GenerateTerms(marked_words),
+    )?;
+    let all_on = page
+        .settings
+        .terms
+        .as_ref()
+        .is_some_and(|list| !list.marked.is_empty());
+    let mark_all = Button::new(if all_on { "全不选" } else { "全选" }).build(
+        ui,
+        theme,
+        "mark-all-terms",
+        Message::MarkAllTerms(!all_on),
+    )?;
+    let lang_row = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
+            align_items: Some(AlignItems::CENTER),
+            gap: page.gap(10.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &lang_boxes,
+    )?;
+    let mut generate_row = vec![lang_row, mark_all, generate];
+    if let Some(notice) = &page.settings.term_notice {
+        generate_row.push(paragraph(ui, theme, notice, None)?);
+    }
+    rows.push(group(ui, theme, &generate_row)?);
 
     let add = Button::new("新增…").build(ui, theme, "add-term", Message::OpenTerm(None))?;
     let paste = Button::new("粘贴导入…").build(ui, theme, "paste-terms", Message::OpenTermPaste)?;
@@ -258,6 +322,17 @@ fn row(
         Visual::Group,
         &[word, detail],
     )?;
+    let marked = page
+        .settings
+        .terms
+        .as_ref()
+        .is_some_and(|list| list.marked.iter().any(|word| word == &term.word));
+    let check = Checkbox::new(marked, "").build(
+        ui,
+        theme,
+        ("mark-term", term.word.as_str()),
+        Message::MarkTerm(term.word.clone()),
+    )?;
     let edit = Button::new("改").build(
         ui,
         theme,
@@ -282,7 +357,7 @@ fn row(
             ..Style::default()
         },
         Visual::Group,
-        &[text_column, edit],
+        &[check, text_column, edit],
     )
 }
 
@@ -500,4 +575,68 @@ fn paste_dialog(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
     )?;
     children.push(buttons);
     dialog(ui, theme, "term-paste-dialog", DIALOG_WIDTH, &children)
+}
+
+/// 待确认区：每条一行「词 · 语种 · 译名」，右边「确认」「丢弃」。
+fn pending_section(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let waiting: Vec<(usize, &crate::terms::pending::Pending)> = page
+        .settings
+        .pending
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| row.status == crate::terms::pending::Status::Waiting)
+        .collect();
+    if waiting.is_empty() {
+        return ui.scene().node(Style::default(), Visual::Group, &[]);
+    }
+    let mut rows = vec![section_title(ui, theme, "待确认的译名")?];
+    for (index, row) in &waiting {
+        let label = format!(
+            "{} · {} · {}（{}）",
+            row.word,
+            row.lang.label(),
+            row.text,
+            row.status.label()
+        );
+        let text = paragraph(ui, theme, &label, None)?;
+        let accept = Button::new("确认").build(
+            ui,
+            theme,
+            ("accept-pending", *index),
+            Message::AcceptPending(*index),
+        )?;
+        let drop = Button::new("丢弃").build(
+            ui,
+            theme,
+            ("drop-pending", *index),
+            Message::DropPending(*index),
+        )?;
+        let buttons = ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                align_items: Some(AlignItems::CENTER),
+                gap: page.gap(6.0),
+                ..Style::default()
+            },
+            Visual::Group,
+            &[accept, drop],
+        )?;
+        let row = ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                align_items: Some(AlignItems::CENTER),
+                gap: page.gap(10.0),
+                size: Size {
+                    width: Dimension::percent(1.0),
+                    height: Dimension::auto(),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[text, buttons],
+        )?;
+        rows.push(row);
+    }
+    group(ui, theme, &rows)
 }

@@ -82,6 +82,35 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，
 `uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），「统计」页按级数词汇用，不进候选。
 
+## crates/qingjian-core 的候选排序与语言模型打分（2026-10-27）
+
+**词级排序的分数**（`ranking` 的第 6 条规则）改成分层结构，起因是两个真实报障：
+`ne` 想要 呢 却总是 那 排第一；`diyi` 第一帧是 的一、过一会儿才变 第一。
+
+- `sentence::lexical_log_prob(frequency, log_total)`：词自己的一元 log 概率，按**词库读音词频**。
+  同一个字在 `ne` 与 `na` 下是两条记录，词频各算各的（呢/ne 53.9 万、那/ne 3.1 万），
+  这正是「敲这个音想要哪个字」该看的数。
+- `sentence::context_lift(transition, unigram)`：语言模型该贡献的**只是上文增益** = 它的条件 log 概率减它自己的一元 log 概率，
+  封在 ±`LIFT_CAP`（1.5，约 4.5 倍）。模型是按**词**统计、不分读音的，直接拿它的先验当真会把 呢 压死
+  （它给 那 −4.81、给 呢 −7.76，方向与读音词频正好相反）；减掉一元后，「做了 → 吧」这种真实搭配仍然说话。
+- `sentence::word_log_prob(...)` 把两者拼起来，`engine/query/phonetic.rs` 的词级排序用它；
+  整句路径仍用原来的 `sentence::transition_log_prob`，两处互不影响。
+- `LanguageModel::unigram_log_prob` 是为此新增的 trait 方法（缺省返回 `None`，即「没有增益」），
+  `qingjian-lm` 的 `BigramModel` 实现了它。测试用的假模型要么实现它，要么按「无增益」处理。
+
+**同输入串选择次数**（`user-choices.tsv`）不再按次数排序键：只比「选过没有」，次数多少走 `weight_bonus` 那条封顶曲线
+（与全词次数同一个函数）。以前 20 次 > 15 次会把误上屏的 那 永远钉在第一——用户天天打 `ne` 想要 呢，
+却因为早年误选攒下的次数再也翻不了身。选过仍亲人一等，只是不再无限放大。
+
+**整句候选与异步神经重排的时序**：`Candidate::settled` 标记「分数已定」，接异步重排时整句分没回来就是 `false`；
+`query/converting.rs::demote_unsettled` 把未定的整句挪到词级候选之后。首帧因此不会先亮出 的一 再自己变 第一
+（重排后 第一 成为最优，整句候选会整条消失，用户看到的就是「第一位突然换人」）。
+同步重排或没接重排时恒为 `true`。CLI 加 `--frame` 打出首帧，配 `--neural-async` 核对。
+
+**退格撤销**：不在组句时按退格要调 `Engine::note_backspace()`，否则「选错了」的账永远撤销不掉
+（Windows 壳 `apps/windows/server/src/dispatch/key/input.rs` 的 `apply_function_key` 以前漏了这一步，
+macOS 壳一直有）。漏了之后误上屏的词一路留在 `user-choices` 与个人 n-gram 里。
+
 ## crates/qingjian-learning
 
 - `FrequencyLearner`：用户选择次数（`user.tsv`，带最近使用日）、按输入串记的选择（`user-choices.tsv`，词级排序里同输入串选过的优先；泛化在**记录侧**完成：

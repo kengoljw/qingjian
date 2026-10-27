@@ -68,6 +68,18 @@ pub enum Message {
     TermCandidates(bool),
     /// 打开粘贴导入卡片。
     OpenTermPaste,
+    /// 给这些词生成译名（勾中的语种）。
+    GenerateTerms(Vec<String>),
+    /// 确认一条待确认译名（写进术语表）。
+    AcceptPending(usize),
+    /// 丢弃一条待确认译名。
+    DropPending(usize),
+    /// 勾 / 取消勾「要生成的语种」，参数是语种标记。
+    ToggleGlossLang(&'static str),
+    /// 勾 / 取消勾一条术语（要生成译名的）。
+    MarkTerm(String),
+    /// 勾 / 取消勾当前筛出来的全部。
+    MarkAllTerms(bool),
     ImportTerms,
     CloseTermPaste,
     /// 选文件导入词库或码表。

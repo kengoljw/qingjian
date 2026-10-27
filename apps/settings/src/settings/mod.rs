@@ -103,6 +103,18 @@ pub struct Settings {
     /// 开着的粘贴导入卡片。
     pub term_paste: Option<crate::terms::TermPaste>,
 
+    /// 术语译名的待确认表。
+    pub pending: Vec<crate::terms::pending::Pending>,
+
+    /// 译名生成任务（后台线程）。
+    pub gloss: crate::terms::gloss::TermGloss,
+
+    /// 勾着的、要生成的语种标记（`en` / `ja` / `es` / `fr` / `ko`）。
+    pub gloss_langs: Vec<&'static str>,
+
+    /// 术语页上的动作提示（生成结果、错误）。
+    pub term_notice: Option<String>,
+
     /// 统计页的数，进统计页时读。
     pub stats: Option<Stats>,
 
@@ -184,6 +196,10 @@ impl Settings {
             term: None,
             term_query: String::new(),
             term_paste: None,
+            pending: Vec::new(),
+            gloss: crate::terms::gloss::TermGloss::new(),
+            gloss_langs: vec!["ja", "es", "fr", "ko"],
+            term_notice: None,
             waker: None,
             search: Search::default(),
             ctrl_space: system_ctrl_space(),

@@ -53,6 +53,8 @@ impl App for Settings {
                     self.terms = Some(crate::terms::Terms::load());
                     self.term_tag = None;
                     self.term_query.clear();
+                    self.pending = crate::terms::pending::load();
+                    self.term_notice = None;
                     self.fields.insert(
                         FieldId::TermSearch,
                         bamboo_slip::TextEdit::new(String::new()),
@@ -219,6 +221,38 @@ impl App for Settings {
                     self.save_term(true);
                 }
             }
+            Message::MarkTerm(word) => {
+                if let Some(list) = self.terms.as_mut() {
+                    if let Some(position) = list.marked.iter().position(|item| *item == word) {
+                        list.marked.remove(position);
+                    } else {
+                        list.marked.push(word);
+                    }
+                }
+            }
+            Message::MarkAllTerms(on) => {
+                if let Some(list) = self.terms.as_mut() {
+                    let query = self.term_query.clone();
+                    let filter = self.term_tag.clone();
+                    list.marked = if on {
+                        list.entries
+                            .iter()
+                            .filter(|term| crate::terms::matches(term, &query))
+                            .filter(|term| match filter.as_deref() {
+                                None => true,
+                                Some(tag) => crate::terms::tag_of(term) == tag,
+                            })
+                            .map(|term| term.word.clone())
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+                }
+            }
+            Message::GenerateTerms(words) => self.generate_terms(words),
+            Message::AcceptPending(index) => self.accept_pending(index),
+            Message::DropPending(index) => self.drop_pending(index),
+            Message::ToggleGlossLang(code) => self.toggle_gloss_lang(code),
             Message::OpenTermPaste => self.open_term_paste(),
             Message::CloseTermPaste => self.close_term_paste(),
             Message::ImportTerms => self.import_terms(),
@@ -270,10 +304,12 @@ impl App for Settings {
     }
 
     fn set_waker(&mut self, waker: Waker) {
+        self.gloss.set_waker(waker.clone());
         self.waker = Some(waker);
     }
 
     fn wake(&mut self) -> bool {
+        self.collect_gloss();
         let mut changed = self.search.expire(Instant::now());
         if let Some(text) = self.cloud_test.finish() {
             self.notice = Some(("cloud", text));

@@ -11,7 +11,9 @@ use crate::system::paths;
 
 pub mod blocked;
 pub mod editor;
+pub mod gloss;
 pub mod import;
+pub mod pending;
 
 pub use editor::TermEditor;
 
@@ -72,6 +74,9 @@ pub struct Terms {
     /// 屏蔽表里的词数（删掉的词，不再被自动学习加回来）。
     pub blocked: usize,
 
+    /// 勾中要生成译名的词（按词面记，筛掉也不会丢）。
+    pub marked: Vec<String>,
+
     /// 读不出来时的原因（文件不在 / 没有可用条目），页上原样显示。
     pub error: Option<String>,
 }
@@ -82,6 +87,7 @@ impl Terms {
             return Self {
                 entries: Vec::new(),
                 blocked: 0,
+                marked: Vec::new(),
                 error: Some("找不到用户数据目录".to_owned()),
             };
         };
@@ -89,6 +95,7 @@ impl Terms {
             return Self {
                 entries: Vec::new(),
                 blocked: 0,
+                marked: Vec::new(),
                 error: Some(format!("{} 还不存在", path.display())),
             };
         }
@@ -100,6 +107,7 @@ impl Terms {
         Self {
             entries,
             blocked,
+            marked: Vec::new(),
             error,
         }
     }
@@ -202,6 +210,7 @@ mod tests {
         Terms {
             entries: parse(text),
             blocked: 0,
+            marked: Vec::new(),
             error: None,
         }
     }

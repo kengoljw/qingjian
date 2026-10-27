@@ -63,6 +63,115 @@ impl Settings {
         }
     }
 
+    /// 给这些词生成译名：结果进待确认表（重复的先清掉同词同语种的旧行）。
+    pub(super) fn generate_terms(&mut self, words: Vec<String>) {
+        if words.is_empty() {
+            self.term_notice = Some("先勾几条要生成译名的词（列表行前的方框）".to_owned());
+            return;
+        }
+        let langs: Vec<crate::terms::pending::Lang> = self
+            .gloss_langs
+            .iter()
+            .filter_map(|code| crate::terms::pending::Lang::from_code(code))
+            .collect();
+        if langs.is_empty() {
+            self.term_notice = Some("先在上面勾一个要生成的语言".to_owned());
+            return;
+        }
+        self.pending.retain(|row| {
+            !row.status.eq(&crate::terms::pending::Status::Waiting)
+                || !words.iter().any(|word| word == &row.word)
+        });
+        self.term_notice = Some(format!(
+            "正在生成 {} 条译名（{} 个词 × {} 种语言）…",
+            words.len() * langs.len(),
+            words.len(),
+            langs.len()
+        ));
+        self.gloss.start(&self.config.predict, words, langs);
+    }
+
+    /// 后台线程叫醒了：把结果并进待确认表。
+    pub(super) fn collect_gloss(&mut self) {
+        let outcomes = self.gloss.drain();
+        if outcomes.is_empty() {
+            return;
+        }
+        let mut failed = 0;
+        for outcome in outcomes {
+            match outcome {
+                crate::terms::gloss::Outcome::Filled(row) => {
+                    self.pending.retain(|existing| {
+                        !(existing.word == row.word && existing.lang == row.lang)
+                    });
+                    self.pending.push(row);
+                }
+                crate::terms::gloss::Outcome::Failed(reason) => {
+                    failed += 1;
+                    self.term_notice = Some(reason);
+                }
+                crate::terms::gloss::Outcome::Done => {}
+            }
+        }
+        if failed == 0 {
+            let waiting = self
+                .pending
+                .iter()
+                .filter(|row| row.status == crate::terms::pending::Status::Waiting)
+                .count();
+            self.term_notice = Some(format!("生成完成，待确认 {waiting} 条"));
+        }
+        let _ = crate::terms::pending::save(&self.pending);
+    }
+
+    /// 确认一条：写进术语表的语种列（英文列除外，英文列是主译名）。
+    pub(super) fn accept_pending(&mut self, index: usize) {
+        let Some(row) = self.pending.get(index).cloned() else {
+            return;
+        };
+        let Some(list) = self.terms.as_mut() else {
+            return;
+        };
+        let Some(term) = list.entries.iter_mut().find(|term| term.word == row.word) else {
+            self.term_notice = Some(format!("术语表里找不到「{}」", row.word));
+            return;
+        };
+        match row.lang {
+            crate::terms::pending::Lang::En => term.english = row.text.clone(),
+            crate::terms::pending::Lang::Ja => term.japanese = row.text.clone(),
+            crate::terms::pending::Lang::Es => term.spanish = row.text.clone(),
+            crate::terms::pending::Lang::Fr => term.french = row.text.clone(),
+            crate::terms::pending::Lang::Ko => term.korean = row.text.clone(),
+        }
+        let entries = list.entries.clone();
+        if let Some(path) = path()
+            && let Err(error) = save(&path, &entries)
+        {
+            self.term_notice = Some(error);
+            return;
+        }
+        if let Some(row) = self.pending.get_mut(index) {
+            row.status = crate::terms::pending::Status::Accepted;
+        }
+        let _ = crate::terms::pending::save(&self.pending);
+        self.term_notice = Some(format!("「{}」的{}译名已确认", row.word, row.lang.label()));
+    }
+
+    pub(super) fn drop_pending(&mut self, index: usize) {
+        if index < self.pending.len() {
+            self.pending.remove(index);
+            let _ = crate::terms::pending::save(&self.pending);
+        }
+    }
+
+    pub(super) fn toggle_gloss_lang(&mut self, code: &'static str) {
+        if let Some(position) = self.gloss_langs.iter().position(|item| *item == code) {
+            self.gloss_langs.remove(position);
+        } else {
+            self.gloss_langs.push(code);
+        }
+    }
+
     pub(super) fn open_term_paste(&mut self) {
         self.fields
             .insert(FieldId::TermPaste, TextEdit::multiline(String::new()));
