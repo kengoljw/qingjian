@@ -2,6 +2,7 @@
 
 use taffy::NodeId;
 
+use super::Key;
 use super::event::{KeyPress, TextInput};
 
 /// 按键处理：处理了就返回消息，没处理返回 `None` 交给上级。
@@ -26,6 +27,9 @@ pub struct Interact<M> {
 
     /// 滚动区：被滚动的内容节点（元素自己是视口）。
     pub(super) scroll_content: Option<NodeId>,
+
+    /// 拖拽滚动条：按下后拖动这个 key 对应的滚动区（元素自己是滚动条滑块）。
+    pub(super) scroll_drag: Option<Key>,
 }
 
 impl<M> Default for Interact<M> {
@@ -44,6 +48,7 @@ impl<M> Interact<M> {
             focusable: false,
             disabled: false,
             scroll_content: None,
+            scroll_drag: None,
         }
     }
 
@@ -97,6 +102,14 @@ impl<M> Interact<M> {
     pub fn scrolls(self, content: NodeId) -> Self {
         Self {
             scroll_content: Some(content),
+            ..self
+        }
+    }
+
+    /// 拖拽滚动条：按住这个元素上下拖，按比例改 `viewport` 那个滚动区的位置。
+    pub fn drags_scroll(self, viewport: Key) -> Self {
+        Self {
+            scroll_drag: Some(viewport),
             ..self
         }
     }

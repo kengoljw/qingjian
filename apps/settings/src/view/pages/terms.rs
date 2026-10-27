@@ -15,8 +15,8 @@ use crate::terms::{Lang, Terms};
 use crate::view::Page;
 use crate::view::parts::controls::choice;
 
-/// 列表一次最多画多少条：整表上千条时一帧画完会明显卡，标签筛选 + 这个上限够用了。
-const PAGE_SIZE: usize = 150;
+/// 列表一次最多画多少条：整表上千条时一帧画完会明显卡，标签 + 搜索 + 这个上限够用了。
+const PAGE_SIZE: usize = 60;
 
 /// 对话框宽度（点）。
 const DIALOG_WIDTH: f32 = 460.0;
@@ -311,7 +311,11 @@ fn row(
         detail.push_str(" · ");
         detail.push_str(&term.reading);
     }
-    let detail = paragraph(ui, theme, &detail, None)?;
+    let detail = text(
+        ui,
+        &truncate(&detail, 56),
+        theme.text(theme.small, 400, theme.colors.secondary),
+    )?;
     let text_column = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,
@@ -639,4 +643,14 @@ fn pending_section(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderEr
         rows.push(row);
     }
     group(ui, theme, &rows)
+}
+
+/// 副标题单行截断：折行排版每帧都要量文字，长了又占地方。
+fn truncate(text: &str, limit: usize) -> String {
+    if text.chars().count() <= limit {
+        return text.to_owned();
+    }
+    let mut out: String = text.chars().take(limit).collect();
+    out.push('…');
+    out
 }

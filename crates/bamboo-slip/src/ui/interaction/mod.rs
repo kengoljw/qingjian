@@ -33,6 +33,9 @@ pub struct Interaction<M> {
     /// 按下时捕获指针的元素，抬起前一直归它。
     pressed: Option<Key>,
 
+    /// 拖滚动条时，按点相对滑块顶端的偏移（像素）。
+    drag_grab: Option<f32>,
+
     focused: Option<Key>,
 
     /// 焦点是键盘带来的，画焦点环。
@@ -68,6 +71,7 @@ impl<M> Interaction<M> {
             pointer: None,
             hovered: Vec::new(),
             pressed: None,
+            drag_grab: None,
             focused: None,
             focus_visible: false,
             offsets: HashMap::new(),

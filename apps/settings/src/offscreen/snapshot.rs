@@ -97,6 +97,9 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     click(&mut runner, Key::ROOT.child("paste-terms"))?;
     shot(&mut runner, "术语：点「粘贴导入」")?;
     click(&mut runner, Key::ROOT.child("term-paste-close"))?;
+    click(&mut runner, Key::ROOT.child("term-search"))?;
+    runner.handle(&Event::Text(TextInput::Insert("业主".to_owned())));
+    shot(&mut runner, "术语：搜索「业主」")?;
 
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Advanced))?;
     click(&mut runner, Key::ROOT.child("clear-input-log"))?;
