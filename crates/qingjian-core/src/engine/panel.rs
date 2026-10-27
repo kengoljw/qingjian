@@ -96,6 +96,7 @@ impl Engine {
                         reading: Some(word.text.clone()),
                         translation: None,
                         aux_code: None,
+                        settled: true,
                     }));
                 }
             }

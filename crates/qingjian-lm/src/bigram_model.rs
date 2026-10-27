@@ -304,6 +304,12 @@ impl LanguageModel for BigramModel {
         };
         Some(probability.max(f64::MIN_POSITIVE).ln())
     }
+
+    fn unigram_log_prob(&self, word: &str) -> Option<f64> {
+        let id = self.word_id(word)?;
+        let probability = f64::from(self.entries[id as usize].count) / self.total;
+        Some(probability.max(f64::MIN_POSITIVE).ln())
+    }
 }
 
 #[cfg(test)]

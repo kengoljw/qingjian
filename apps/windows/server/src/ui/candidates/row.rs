@@ -74,6 +74,7 @@ mod tests {
                 }],
             )),
             aux_code: None,
+            settled: true,
         }
     }
 

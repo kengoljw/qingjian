@@ -44,6 +44,7 @@ impl Engine {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         }];
         Query {
             segmentations: Vec::new(),
@@ -87,6 +88,7 @@ impl Engine {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         })
         .collect();
         self.insert_emoji(&mut items);
@@ -131,6 +133,7 @@ impl Engine {
                         reading: None,
                         translation: None,
                         aux_code: None,
+                        settled: true,
                     }],
                 },
                 scope.to_owned(),
@@ -184,6 +187,7 @@ impl Engine {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         })
     }
 }

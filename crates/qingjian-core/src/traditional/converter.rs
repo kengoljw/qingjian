@@ -178,6 +178,7 @@ mod tests {
                     reading: None,
                     translation: None,
                     aux_code: None,
+                    settled: true,
                 })
                 .collect(),
         }
@@ -245,6 +246,7 @@ mod tests {
                     reading: Some("软件".to_owned()),
                     translation: None,
                     aux_code: None,
+                    settled: true,
                 },
                 Candidate {
                     text: "软件".to_owned(),
@@ -253,6 +255,7 @@ mod tests {
                     reading: None,
                     translation: Some(Translation::new(Language::Chinese, vec![sense("软件工程")])),
                     aux_code: None,
+                    settled: true,
                 },
                 Candidate {
                     text: "开发".to_owned(),
@@ -261,6 +264,7 @@ mod tests {
                     reading: None,
                     translation: Some(Translation::new(Language::English, vec![sense("软件")])),
                     aux_code: None,
+                    settled: true,
                 },
             ],
         };

@@ -182,6 +182,7 @@ mod tests {
                 reading: None,
                 translation: None,
                 aux_code: None,
+                settled: true,
             })
             .collect();
         CandidateLayout::new(candidates, page_size, 0)
@@ -249,6 +250,7 @@ mod tests {
                 reading: None,
                 translation: None,
                 aux_code: None,
+                settled: true,
             })
             .collect();
         // 第二行第一列有个三字词：哪怕不在视口里，第一列也按它留宽

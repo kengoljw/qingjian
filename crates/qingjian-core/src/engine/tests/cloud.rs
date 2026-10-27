@@ -275,6 +275,7 @@ fn cloud_words_tolerate_typos_but_not_unrelated_words() {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     };
     assert_eq!(engine.commit(&word), "这个东西吗");
     assert!(engine.composition().is_empty());
@@ -461,6 +462,7 @@ fn committing_a_cloud_word_learns_it_and_it_ranks_first_next_time() {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     };
     assert_eq!(engine.commit(&word), "账套");
     assert!(engine.composition().is_empty());
@@ -509,6 +511,7 @@ fn traditional_mode_preserves_original_text_across_queries() {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     };
     assert_eq!(engine.commit(&word), "凱發");
     // 检查词库里学到的是简体「凯发」
@@ -526,6 +529,7 @@ fn cloud_words_are_learned_with_the_typed_reading_when_it_fits() {
         reading: None,
         translation: None,
         aux_code: None,
+        settled: true,
     };
     let has = |engine: &Engine, text: &str| texts_of(engine).iter().any(|t| t == text);
     // 模型把 先 的读音给成了 xia：敲的 kaixian 切得开、每个音节都是那个字的读音，按敲的学

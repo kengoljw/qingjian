@@ -40,6 +40,7 @@ impl Engine {
                     reading: None,
                     translation: None,
                     aux_code: None,
+                    settled: true,
                 },
             );
         }
@@ -65,6 +66,7 @@ impl Engine {
                     reading: None,
                     translation: None,
                     aux_code: None,
+                    settled: true,
                 },
             );
         }
@@ -101,6 +103,7 @@ impl Engine {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         };
         let word = lists.iter().find_map(|words| words.get(text));
         // 这段字母下用户选中文词（`key` → 可以）比选英文词的次数多：中文词留在第一，英文让到后面；
@@ -266,6 +269,7 @@ fn insert_following(
                     reading: Some(word.clone()),
                     translation: None,
                     aux_code: None,
+                    settled: true,
                 },
             );
             index += 1;

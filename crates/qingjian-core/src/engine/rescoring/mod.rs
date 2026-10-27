@@ -34,6 +34,20 @@ impl Engine {
             || self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive)
     }
 
+    /// 这条整句的分数已经过神经重排确认。接了异步重打分器、而这条的分还没回来时返回 `false`：
+    /// 那时整句的顺序仍是静态二元模型给的，与重排之后可能完全不同（`diyi` 先出 的一、回来才变 第一）。
+    pub(super) fn sentence_settled(&self, text: &str) -> bool {
+        if self.sentence_scorer.is_some() {
+            // 同步重打分：算出候选时就已经按神经分排过
+            return true;
+        }
+        if !self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive) {
+            // 没接重打分器：静态顺序就是终局，不存在「等一会儿变」这回事
+            return true;
+        }
+        self.neural_cache.borrow().get(text).is_some()
+    }
+
     /// 给模型看的前文：壳给了应用里的光标前文就用它（[`Self::set_rescoring_context`]），
     /// 否则用本会话最近上屏的字符；长度按 `neural_context` 截。
     pub(super) fn rescoring_context(&self) -> String {

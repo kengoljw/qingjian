@@ -162,8 +162,11 @@ impl Engine {
         let typed = &self.composition.scope()[tail.head_len..];
         let mut syllables = conversion.syllables;
         syllables.push(typed.to_owned());
+        let text = format!("{}{}", conversion.text, tail.word);
         Some(Candidate {
-            text: format!("{}{}", conversion.text, tail.word),
+            // 头段的整句同样要等神经分回来才算定
+            settled: self.sentence_settled(&conversion.text),
+            text,
             kind: CandidateKind::Sentence,
             syllables,
             reading: None,

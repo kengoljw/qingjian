@@ -146,6 +146,7 @@ mod tests {
             reading: None,
             translation: None,
             aux_code: None,
+            settled: true,
         }
     }
 

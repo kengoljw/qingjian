@@ -7,7 +7,7 @@ use qingjian_core::{Engine, Query};
 use crate::display;
 use crate::error::CliError;
 
-pub fn run(engine: &mut Engine, limit: usize) -> Result<(), CliError> {
+pub fn run(engine: &mut Engine, limit: usize, first_frame: bool) -> Result<(), CliError> {
     eprintln!(
         "输入拼音查询候选，输入序号上屏，:raw 原样上屏上一次输入（回车），:del N 删掉第 N 个候选，:q 退出。"
     );
@@ -44,7 +44,7 @@ pub fn run(engine: &mut Engine, limit: usize) -> Result<(), CliError> {
             forget(engine, last.as_ref(), index);
             continue;
         }
-        last = display::show(engine, line, limit);
+        last = display::show(engine, line, limit, first_frame);
     }
     Ok(())
 }

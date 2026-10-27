@@ -108,14 +108,14 @@ fn run() -> Result<(), CliError> {
         return Ok(());
     }
     if args.inputs.is_empty() {
-        repl::run(&mut engine, args.limit)?;
+        repl::run(&mut engine, args.limit, args.frame)?;
     } else {
         for input in &args.inputs {
             println!("> {input}");
             if args.typing {
                 display::show_typing(&mut engine, input);
             } else {
-                display::show(&mut engine, input, args.limit);
+                display::show(&mut engine, input, args.limit, args.frame);
             }
         }
     }

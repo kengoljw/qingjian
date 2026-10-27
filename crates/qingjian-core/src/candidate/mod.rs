@@ -46,4 +46,31 @@ pub struct Candidate {
     /// 壳按 `[general] aux_code_show` 决定要不要显示。
     #[serde(default)]
     pub aux_code: Option<String>,
+
+    /// 分数已定：整句候选接了**异步**神经重排、而这一条的分还没回来时为 `false`。
+    ///
+    /// 那时这条的顺序只是静态二元模型给的，重排回来后可能整条消失或换到别处（`diyi` 先出 的一、
+    /// 回来才变 第一）。词级候选与没接重排时恒为 `true`。壳据此决定：没定的整句不要排在最前面，
+    /// 免得用户看到的第一条过一会儿自己变。不参与相等比较（只是排序就绪的标记）。
+    #[serde(default = "settled_by_default")]
+    pub settled: bool,
+}
+
+/// 缺省 `settled` 为真：绝大多数候选（词级、符号、英文……）没有「等神经分」这回事。
+fn settled_by_default() -> bool {
+    true
+}
+
+impl Default for Candidate {
+    fn default() -> Self {
+        Self {
+            text: String::new(),
+            kind: CandidateKind::Chinese,
+            syllables: Vec::new(),
+            reading: None,
+            translation: None,
+            aux_code: None,
+            settled: true,
+        }
+    }
 }

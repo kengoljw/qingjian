@@ -11,7 +11,8 @@ const PREDICTION_WAIT: Duration = Duration::from_secs(8);
 /// 查询并打印一段拼音的候选、译文和耗时。返回查询结果供后续上屏用。
 ///
 /// 输入里的 `|` 表示光标位置（`ni|hao`），用来验证光标停在中间时的候选。
-pub fn show(engine: &mut Engine, input: &str, limit: usize) -> Option<Query> {
+/// `first_frame` 为真时先打印第一帧（重排结果还没回来那一屏，与壳里用户最先看到的一致）。
+pub fn show(engine: &mut Engine, input: &str, limit: usize, first_frame: bool) -> Option<Query> {
     let cursor = input.find('|');
     feed(engine, &input.replace('|', ""));
     if let Some(cursor) = cursor {
@@ -21,9 +22,24 @@ pub fn show(engine: &mut Engine, input: &str, limit: usize) -> Option<Query> {
         }
     }
     let mut query = match engine.query() {
-        // 异步重打分：等后台的分回来再查一次，输出的就是重排后的
-        Ok(query) if crate::rescoring::settle(engine) => engine.query().unwrap_or(query),
-        Ok(query) => query,
+        Ok(frame) => {
+            if first_frame {
+                let unsettled = frame.candidates.items.iter().take(limit).map(|c| {
+                    if c.settled {
+                        c.text.clone()
+                    } else {
+                        format!("{}(未定)", c.text)
+                    }
+                });
+                println!("  首帧: {}", unsettled.collect::<Vec<_>>().join(" | "));
+            }
+            // 异步重打分：等后台的分回来再查一次，输出的就是重排后的
+            if crate::rescoring::settle(engine) {
+                engine.query().unwrap_or(frame)
+            } else {
+                frame
+            }
+        }
         Err(error) => {
             println!("  {error}");
             return None;
