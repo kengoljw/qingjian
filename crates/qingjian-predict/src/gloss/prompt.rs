@@ -21,6 +21,12 @@ const MAX_VIETNAMESE_CHARS: usize = 36;
 /// 单条德文译词最多几个字符：德语复合词可以任意拼接（`Geschwindigkeitsüberschreitung`），放得更宽。
 const MAX_GERMAN_CHARS: usize = 40;
 
+/// 单条法文译词最多几个字符：法文短语常带冠词与撇号（`chef de chantier`）。
+const MAX_FRENCH_CHARS: usize = 40;
+
+/// 单条韩文译词最多几个字符：谚文音节按字计，短语比汉字短。
+const MAX_KOREAN_CHARS: usize = 20;
+
 pub const ENGLISH_SYSTEM_PROMPT: &str = "你是汉英词典编纂者。给每个中文词写最简短的英文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
@@ -53,6 +59,22 @@ pub const VIETNAMESE_SYSTEM_PROMPT: &str = "你是汉越词典编纂者。给每
 输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"phát triển\"},{\"t\":\"khai thác\"}]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
+pub const FRENCH_SYSTEM_PROMPT: &str = "你是汉法词典编纂者。给每个中文词写最简短的法国语对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的法文对应词，按常用度排；每条不超过 3 个法文单词；动词用不定式，名词带冠词时只留名词本身；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"développer\"},{\"t\":\"exploiter\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const KOREAN_SYSTEM_PROMPT: &str = "你是汉韩词典编纂者。给每个中文词写最简短的韩文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的韩文对应词，按常用度排；用谚文，不要汉字；动词给 -하다 原形；每条不超过 4 个词；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译（韩文常用写法）；多义词只取最常用的义项；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"개발하다\"},{\"t\":\"개발\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
 pub const GERMAN_SYSTEM_PROMPT: &str = "你是汉德词典编纂者。给每个中文词写最简短的德文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
@@ -68,6 +90,8 @@ pub fn system_prompt(language: Language) -> &'static str {
         Language::Spanish => SPANISH_SYSTEM_PROMPT,
         Language::Vietnamese => VIETNAMESE_SYSTEM_PROMPT,
         Language::German => GERMAN_SYSTEM_PROMPT,
+        Language::French => FRENCH_SYSTEM_PROMPT,
+        Language::Korean => KOREAN_SYSTEM_PROMPT,
         Language::English | Language::Chinese => ENGLISH_SYSTEM_PROMPT,
     }
 }
@@ -182,6 +206,16 @@ fn clean_text(raw: &str, language: Language) -> Option<String> {
                 && text.split_whitespace().count() <= 4
                 && text.chars().all(is_latin_word_char)
         }
+        Language::French => {
+            text.chars().count() <= MAX_FRENCH_CHARS
+                && text.split_whitespace().count() <= 4
+                && text.chars().all(is_latin_word_char)
+        }
+        Language::Korean => {
+            text.chars().count() <= MAX_KOREAN_CHARS
+                && text.split_whitespace().count() <= 4
+                && text.chars().all(is_hangul_or_space)
+        }
         Language::English | Language::Chinese => {
             text.len() <= MAX_ENGLISH_BYTES
                 && text.split_whitespace().count() <= 4
@@ -199,6 +233,11 @@ fn is_latin_word_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
         || matches!(c, ' ' | '-' | '\'' | '.' | '/')
         || (matches!(c as u32, 0x00C0..=0x024F | 0x1E00..=0x1EFF) && c.is_alphabetic())
+}
+
+/// 谚文（含字母、音节与空格），用来挡住汉字或拉丁词冒充韩文。
+fn is_hangul_or_space(c: char) -> bool {
+    matches!(c as u32, 0xAC00..=0xD7A3 | 0x1100..=0x11FF | 0x3130..=0x318F) || c == ' '
 }
 
 /// 全是假名（含长音、中点）。

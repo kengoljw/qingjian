@@ -22,6 +22,12 @@ pub enum Language {
 
     /// 德语。
     German,
+
+    /// 法语。
+    French,
+
+    /// 韩语。
+    Korean,
 }
 
 impl Language {
@@ -34,6 +40,8 @@ impl Language {
             Self::Spanish => "es",
             Self::Vietnamese => "vi",
             Self::German => "de",
+            Self::French => "fr",
+            Self::Korean => "ko",
         }
     }
 }
@@ -53,6 +61,8 @@ impl FromStr for Language {
             "es" | "es-es" | "spanish" => Ok(Self::Spanish),
             "vi" | "vi-vn" | "vietnamese" => Ok(Self::Vietnamese),
             "de" | "german" => Ok(Self::German),
+            "fr" | "fr-fr" | "french" => Ok(Self::French),
+            "ko" | "ko-kr" | "korean" => Ok(Self::Korean),
             other => Err(UnknownLanguage(other.to_owned())),
         }
     }
@@ -78,12 +88,18 @@ mod tests {
         assert_eq!("DE".parse::<Language>().unwrap(), Language::German);
         assert_eq!(" de ".parse::<Language>().unwrap(), Language::German);
         assert_eq!("German".parse::<Language>().unwrap(), Language::German);
+        assert_eq!("fr".parse::<Language>().unwrap(), Language::French);
+        assert_eq!("FR".parse::<Language>().unwrap(), Language::French);
+        assert_eq!("French".parse::<Language>().unwrap(), Language::French);
+        assert_eq!("ko".parse::<Language>().unwrap(), Language::Korean);
+        assert_eq!("ko-KR".parse::<Language>().unwrap(), Language::Korean);
+        assert_eq!("Korean".parse::<Language>().unwrap(), Language::Korean);
     }
 
     #[test]
     fn rejects_unknown_codes() {
-        let error = "fr".parse::<Language>().unwrap_err();
-        assert_eq!(error.0, "fr");
+        let error = "xx".parse::<Language>().unwrap_err();
+        assert_eq!(error.0, "xx");
     }
 
     #[test]
@@ -92,5 +108,7 @@ mod tests {
         assert_eq!(Language::Japanese.code(), "ja");
         assert_eq!(Language::Vietnamese.code(), "vi");
         assert_eq!(Language::German.code(), "de");
+        assert_eq!(Language::French.code(), "fr");
+        assert_eq!(Language::Korean.code(), "ko");
     }
 }

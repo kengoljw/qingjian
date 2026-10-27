@@ -8,12 +8,14 @@ use crate::message::{Message, Popup};
 use crate::view::Page;
 
 /// 学习语言（配置写法、界面名），最后一项是不显示译文。
-pub const LANGUAGES: [(&str, &str); 6] = [
+pub const LANGUAGES: [(&str, &str); 8] = [
     ("en", "英语"),
     ("ja", "日语"),
     ("es", "西班牙语"),
     ("vi", "越南语"),
     ("de", "德语"),
+    ("fr", "法语"),
+    ("ko", "韩语"),
     (qingjian_platform::LEARNING_LANGUAGE_OFF, "不显示"),
 ];
 
