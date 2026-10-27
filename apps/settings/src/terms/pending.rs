@@ -45,12 +45,14 @@ impl Lang {
             .find(|lang| lang.code().eq_ignore_ascii_case(code.trim()))
     }
 
-    /// 生成时用的「学习语言」；法 / 韩还没进 `Language`，生成时先退回英语（等语言落地再换）。
+    /// 生成时用的「学习语言」。
     pub fn core(self) -> qingjian_core::Language {
         match self {
-            Self::En | Self::Fr | Self::Ko => qingjian_core::Language::English,
+            Self::En => qingjian_core::Language::English,
             Self::Ja => qingjian_core::Language::Japanese,
             Self::Es => qingjian_core::Language::Spanish,
+            Self::Fr => qingjian_core::Language::French,
+            Self::Ko => qingjian_core::Language::Korean,
         }
     }
 }
