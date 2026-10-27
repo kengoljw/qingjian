@@ -85,6 +85,8 @@ impl ScrollArea {
                 &[],
             )?;
             ui.fade(bar, key.child("bar"), theme.flip, Easing::Ease);
+            // 滑块可以按住拖动：按比例改视口的滚动位置
+            ui.interact(bar, key.child("bar"), Interact::new().drags_scroll(key));
             children.push(bar);
         }
         let viewport = ui.scene().node(

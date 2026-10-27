@@ -44,8 +44,21 @@ impl App for Settings {
                 self.page = page;
                 self.recording = None;
                 self.close_phrase();
+                self.close_term();
+                self.close_term_paste();
                 if page == PageId::Dictionaries {
                     self.library = Library::scan();
+                }
+                if page == PageId::Terms {
+                    self.terms = Some(crate::terms::Terms::load());
+                    self.term_tag = None;
+                    self.term_query.clear();
+                    self.pending = crate::terms::pending::load();
+                    self.term_notice = None;
+                    self.fields.insert(
+                        FieldId::TermSearch,
+                        bamboo_slip::TextEdit::new(String::new()),
+                    );
                 }
                 if page == PageId::Stats {
                     self.stats = Some(Stats::load(&self.config.general));
@@ -125,6 +138,13 @@ impl App for Settings {
                 {
                     bamboo_slip::set_clipboard(&copied);
                 }
+                if id == FieldId::TermSearch {
+                    self.term_query = self
+                        .fields
+                        .get(&id)
+                        .map(|field| field.text().to_owned())
+                        .unwrap_or_default();
+                }
             }
             Message::CheckUpdate => {
                 if !self.update.running() {
@@ -183,6 +203,65 @@ impl App for Settings {
                 }
             }
             Message::ToggleSources => self.sources_open = !self.sources_open,
+            Message::TermTab(tab) => self.term_tab = tab,
+            Message::TermTag(tag) => self.term_tag = tag,
+            Message::TermLang(lang) => self.term_lang = lang,
+            Message::OpenTerm(index) => self.open_term(index),
+            Message::CloseTerm => self.close_term(),
+            Message::SaveTerm => self.save_term(false),
+            Message::DeleteTerm => {
+                if self
+                    .term
+                    .as_mut()
+                    .is_some_and(|editor| !editor.confirm_delete)
+                {
+                    if let Some(editor) = self.term.as_mut() {
+                        editor.confirm_delete = true;
+                    }
+                } else {
+                    self.save_term(true);
+                }
+            }
+            Message::MarkTerm(word) => {
+                if let Some(list) = self.terms.as_mut() {
+                    if let Some(position) = list.marked.iter().position(|item| *item == word) {
+                        list.marked.remove(position);
+                    } else {
+                        list.marked.push(word);
+                    }
+                }
+            }
+            Message::MarkAllTerms(on) => {
+                if let Some(list) = self.terms.as_mut() {
+                    let query = self.term_query.clone();
+                    let filter = self.term_tag.clone();
+                    list.marked = if on {
+                        list.entries
+                            .iter()
+                            .filter(|term| crate::terms::matches(term, &query))
+                            .filter(|term| match filter.as_deref() {
+                                None => true,
+                                Some(tag) => crate::terms::tag_of(term) == tag,
+                            })
+                            .map(|term| term.word.clone())
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+                }
+            }
+            Message::GenerateTerms(words) => self.generate_terms(words),
+            Message::AcceptPending(index) => self.accept_pending(index),
+            Message::DropPending(index) => self.drop_pending(index),
+            Message::ToggleGlossLang(code) => self.toggle_gloss_lang(code),
+            Message::OpenTermPaste => self.open_term_paste(),
+            Message::CloseTermPaste => self.close_term_paste(),
+            Message::ImportTerms => self.import_terms(),
+            Message::TermCandidates(on) => {
+                if let Some(editor) = self.term.as_mut() {
+                    editor.in_candidates = on;
+                }
+            }
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {
                 self.search.edit.apply(&edit);
@@ -226,10 +305,12 @@ impl App for Settings {
     }
 
     fn set_waker(&mut self, waker: Waker) {
+        self.gloss.set_waker(waker.clone());
         self.waker = Some(waker);
     }
 
     fn wake(&mut self) -> bool {
+        self.collect_gloss();
         let mut changed = self.search.expire(Instant::now());
         if let Some(text) = self.cloud_test.finish() {
             self.notice = Some(("cloud", text));

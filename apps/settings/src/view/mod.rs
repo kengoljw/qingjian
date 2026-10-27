@@ -50,6 +50,7 @@ pub fn view(
         palette,
         scale,
         content_width: width as f32 - (sidebar::WIDTH + CONTENT_PADDING * 2.0) * scale,
+        content_height: height as f32 - (TITLEBAR + 12.0 + 28.0) * scale,
     };
     let current = settings.page;
     ui.info_links("点一下 ⓘ 打开文档", move |title| {
@@ -105,6 +106,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
         palette: &LIGHT,
         scale: 1.0,
         content_width: 600.0,
+        content_height: 800.0,
     };
     let mut entries = Vec::new();
     for id in PageId::ALL {
@@ -142,6 +144,7 @@ fn page_children(
         PageId::Appearance => pages::appearance::appearance(ui, page)?,
         PageId::Shortcuts => pages::shortcuts::shortcuts(ui, page)?,
         PageId::Phrases => pages::phrases::phrases(ui, page)?,
+        PageId::Terms => pages::terms::terms(ui, page)?,
         PageId::Dictionaries => pages::dictionaries::dictionaries(ui, page)?,
         PageId::Cloud => pages::cloud::cloud(ui, page)?,
         PageId::Stats => pages::stats::stats(ui, page)?,

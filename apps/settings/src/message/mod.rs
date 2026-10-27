@@ -14,6 +14,7 @@ use crate::library::Kind;
 use crate::page_id::PageId;
 use crate::shortcut::Shortcut;
 use crate::system::action::Action;
+use crate::terms::Lang;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -53,6 +54,36 @@ pub enum Message {
     ClosePhrase,
     /// 列表里直接开关第 i 条。
     TogglePhrase(usize),
+    /// 术语页按标签筛（None 全部）。
+    /// 术语页切页签。
+    TermTab(crate::terms::TermTab),
+    TermTag(Option<String>),
+    /// 术语页显示哪个语种的译名。
+    TermLang(Lang),
+    /// 打开术语编辑卡片：None 新增，Some(i) 改第 i 条。
+    OpenTerm(Option<usize>),
+    SaveTerm,
+    /// 卡片里的「删除」（第一下只是确认）。
+    DeleteTerm,
+    CloseTerm,
+    /// 卡片里的「进拼音候选」开关。
+    TermCandidates(bool),
+    /// 打开粘贴导入卡片。
+    OpenTermPaste,
+    /// 给这些词生成译名（勾中的语种）。
+    GenerateTerms(Vec<String>),
+    /// 确认一条待确认译名（写进术语表）。
+    AcceptPending(usize),
+    /// 丢弃一条待确认译名。
+    DropPending(usize),
+    /// 勾 / 取消勾「要生成的语种」，参数是语种标记。
+    ToggleGlossLang(&'static str),
+    /// 勾 / 取消勾一条术语（要生成译名的）。
+    MarkTerm(String),
+    /// 勾 / 取消勾当前筛出来的全部。
+    MarkAllTerms(bool),
+    ImportTerms,
+    CloseTermPaste,
     /// 选文件导入词库或码表。
     Import(Kind),
     /// 移除用户导入的一本（文件名不含扩展名）。

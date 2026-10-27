@@ -11,6 +11,7 @@ pub mod extra_dictionaries;
 pub mod logs;
 pub mod protocol;
 pub mod resources;
+pub mod terms;
 
 pub use config::{
     Appearance, AppsConfig, AuxCodeConfig, CandidateRenderer, Config, DEFAULT_DOMAINS,

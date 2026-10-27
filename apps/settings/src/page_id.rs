@@ -10,6 +10,7 @@ pub enum PageId {
     Appearance,
     Shortcuts,
     Phrases,
+    Terms,
     Dictionaries,
     Cloud,
     Stats,
@@ -18,13 +19,14 @@ pub enum PageId {
 }
 
 impl PageId {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Input,
         Self::Candidates,
         Self::Language,
         Self::Appearance,
         Self::Shortcuts,
         Self::Phrases,
+        Self::Terms,
         Self::Dictionaries,
         Self::Cloud,
         Self::Stats,
@@ -40,6 +42,7 @@ impl PageId {
             Self::Appearance => "外观",
             Self::Shortcuts => "快捷键",
             Self::Phrases => "自定义短语",
+            Self::Terms => "术语",
             Self::Dictionaries => "词库",
             Self::Cloud => "云服务",
             Self::Stats => "统计",
@@ -56,6 +59,7 @@ impl PageId {
             Self::Appearance => Glyph::Appearance,
             Self::Shortcuts => Glyph::Command,
             Self::Phrases => Glyph::Phrases,
+            Self::Terms => Glyph::Dictionary,
             Self::Dictionaries => Glyph::Dictionary,
             Self::Cloud => Glyph::Cloud,
             Self::Stats => Glyph::Stats,

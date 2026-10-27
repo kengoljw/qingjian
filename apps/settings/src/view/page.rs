@@ -18,6 +18,9 @@ pub struct Page<'a> {
 
     /// 右边内容区扣掉左右边距后的宽度（像素）。
     pub content_width: f32,
+
+    /// 右边内容区扣掉上下边距后的高度（像素）；要自己控制滚动的页按它撑满。
+    pub content_height: f32,
 }
 
 impl Page<'_> {

@@ -18,10 +18,13 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [design/rendering.md](design/rendering.md) | 跨平台 UI 与自绘渲染器（2026-09-13）：显示面与控件面的区分、Flutter / Avalonia / WebView 的调研结论、主题的两条路、tiny-skia + cosmic-text 的 spike 结果与两平台接入 |
 | [design/aux-code.md](design/aux-code.md) | 辅码（2026-09-14）：触发键与过滤语义、Rime 码表导入、笔画原生表与大陆序覆盖、候选注记与设置界面 |
 | [design/core-internals.md](design/core-internals.md) | Core 与显示层拆解（2026-09-23）：`Engine` 的字段分组与线程归属、一次按键的数据流、三条异步旁路、上屏写回、缓存，三个平台的显示层与还各写一份的地方 |
+| [design/personal-terms.md](design/personal-terms.md) | 个人术语表与用户词库译文（2026-10-23）：术语只参与排序、云端批量生成译文与待确认表、设置程序「术语」页、法语新增的五处落点 |
+| [design/term-ingestion.md](design/term-ingestion.md) | 双语术语导入流程（2026-10-23）：批次目录、固定格式、哈希链审计、人工编辑边界与 `verify` 校验 |
 | [plan/roadmap.md](plan/roadmap.md) | 分阶段路线图、各阶段的依赖关系与已完成项 |
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |
 | [plan/wubi.md](plan/wubi.md) | 五笔（形码）支持方案（2026-09-15）：为什么不能按双拼的方式接、两条平行管线、码表与词频、`[general] scheme` 收敛、分期 |
+| [plan/model-eval.md](plan/model-eval.md) | 模型假设与验证尺子：输入日志字段、每个假设的指标与基线、覆盖 / 排序两个缺口（2026-10-23） |
 | [notes/crate-notes.md](notes/crate-notes.md) | 各 crate / app / tool 的实现要点：入口类型、数据文件、常数、生成命令 |
 | [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
 | [notes/linux-fcitx4.md](notes/linux-fcitx4.md) | Ubuntu 22.04 的 Fcitx4 源码适配、安装与验证 |
@@ -33,5 +36,6 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [notes/constant-sweep.md](notes/constant-sweep.md) | 排序常数扫描（2026-09-12）：插值与敲错代价在冻结日志上扫网格，全在平台区不改；没命中的构成与复现步骤 |
 | [notes/windows-win10.md](notes/windows-win10.md) | Windows 10 与设置程序（2026-09-13）：Reactor 早期绑定 Windows 11 才有的 AppModel API 导致加载期失败，改自包含部署 + 延迟加载 |
 | [notes/ime-lm-eval.md](notes/ime-lm-eval.md) | 上游 chinese-ime-lm 同池评测（2026-10-22）：13,622 句上 4M / 25M 重排分别 −3.88pp / −1.55pp（McNemar 均显著），对照 P2C +4.09pp；按决策门停在保留评测资产 |
+| [notes/domain-lexicon-sources.md](notes/domain-lexicon-sources.md) | 领域词库数据源调研（2026-10-23）：工程施工 / 项目管理 / 建筑设计 / 机电 / 商业品牌 / 二次元 六个领域逐个核许可；结论是五个工作领域没有可随包的干净词表，走自建核心表 + 政府公文/维基语料挖词 |
 
 约定：文档写中文，代码标识符一律英文。实现与文档产生分歧时以代码为准，并同步更新文档。

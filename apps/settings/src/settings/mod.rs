@@ -8,6 +8,7 @@ mod library;
 mod phrases;
 mod search;
 mod shortcuts;
+mod terms_edit;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -84,6 +85,39 @@ pub struct Settings {
     /// 开着的短语编辑卡片。
     pub phrase: Option<PhraseEditor>,
 
+    /// 术语页的数据，进术语页时读。
+    pub terms: Option<crate::terms::Terms>,
+
+    /// 术语页当前的标签筛选（None 全部）。
+    pub term_tag: Option<String>,
+
+    /// 术语页显示哪个语种的译名。
+    pub term_lang: crate::terms::Lang,
+
+    /// 开着的术语编辑卡片。
+    pub term: Option<crate::terms::TermEditor>,
+
+    /// 术语页的搜索词（词面 / 译名 / 读音子串）。
+    pub term_query: String,
+
+    /// 术语页在哪个页签。
+    pub term_tab: crate::terms::TermTab,
+
+    /// 开着的粘贴导入卡片。
+    pub term_paste: Option<crate::terms::TermPaste>,
+
+    /// 术语译名的待确认表。
+    pub pending: Vec<crate::terms::pending::Pending>,
+
+    /// 译名生成任务（后台线程）。
+    pub gloss: crate::terms::gloss::TermGloss,
+
+    /// 勾着的、要生成的语种标记（`en` / `ja` / `es` / `fr` / `ko`）。
+    pub gloss_langs: Vec<&'static str>,
+
+    /// 术语页上的动作提示（生成结果、错误）。
+    pub term_notice: Option<String>,
+
     /// 统计页的数，进统计页时读。
     pub stats: Option<Stats>,
 
@@ -159,6 +193,17 @@ impl Settings {
             phrase: None,
             stats: None,
             stats_cloud: false,
+            terms: None,
+            term_tag: None,
+            term_lang: crate::terms::Lang::En,
+            term: None,
+            term_query: String::new(),
+            term_tab: crate::terms::TermTab::List,
+            term_paste: None,
+            pending: Vec::new(),
+            gloss: crate::terms::gloss::TermGloss::new(),
+            gloss_langs: vec!["ja", "es", "fr", "ko"],
+            term_notice: None,
             waker: None,
             search: Search::default(),
             ctrl_space: system_ctrl_space(),

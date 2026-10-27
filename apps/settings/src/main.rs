@@ -18,6 +18,7 @@ mod shortcut;
 mod stats;
 mod support;
 mod system;
+mod terms;
 mod view;
 
 use std::path::PathBuf;

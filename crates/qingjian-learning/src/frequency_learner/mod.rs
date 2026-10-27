@@ -3,7 +3,7 @@ mod learner_impl;
 mod tables;
 
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use decay::{DEFAULT_HALF_LIFE_DAYS, Decay};
 use foldhash::HashMap;
@@ -19,6 +19,9 @@ use crate::error::LearningError;
 
 /// 用户词文件名，与词频文件放同一目录；格式与主词库 TSV 相同（`词\t拼音\t词频`）。
 const USER_WORDS_FILE: &str = "user-words.tsv";
+
+/// 屏蔽表：一行一个词。术语页删掉的词写进来，自动学习不再把它加回用户词。
+const BLOCKED_FILE: &str = "user-blocked.tsv";
 
 /// 用户词在小词库里的词频。排序主要靠 weight，这个值只在同 weight 时起作用。
 const USER_WORD_FREQUENCY: u32 = 100;
@@ -79,6 +82,9 @@ pub struct FrequencyLearner {
     /// 用户词自上次保存后是否有变化。
     words_dirty: bool,
 
+    /// 屏蔽表：学过的、但用户明确不要的词（术语页删除时写入）。只在读盘时加载，由设置程序维护文件。
+    blocked: BTreeSet<String>,
+
     /// 个人 n-gram：上屏词序列的转移计数（二元 + 三元）。
     ngram: UserNgram,
 
@@ -118,6 +124,7 @@ impl Default for FrequencyLearner {
             words: BTreeMap::default(),
             user_dictionary: None,
             words_dirty: false,
+            blocked: BTreeSet::default(),
             ngram: UserNgram::default(),
             ngram_dirty: false,
             choices: HashMap::default(),
@@ -208,6 +215,11 @@ impl FrequencyLearner {
         if let Some(source) = read_text_lossy(&words_path)? {
             let skipped = learner.load_words(&source);
             note_skipped(&words_path, skipped);
+        }
+        let blocked_path = Self::blocked_path(&path);
+        if let Some(source) = read_text_lossy(&blocked_path)? {
+            let skipped = learner.load_blocked(&source);
+            note_skipped(&blocked_path, skipped);
         }
         let ngram_path = Self::ngram_path(&path);
         if let Some(source) = read_text_lossy(&ngram_path)? {

@@ -117,6 +117,11 @@ impl Learner for FrequencyLearner {
         if text.is_empty() || syllables.is_empty() {
             return;
         }
+        // 术语页删掉的词：不要再被自动学习加回来
+        if self.blocked.contains(text) {
+            tracing::debug!(text, "屏蔽表里的词，不记用户词");
+            return;
+        }
         let pinyin = syllables.join(" ");
         if self.words.insert(text.to_owned(), pinyin) == Some(syllables.join(" ")) {
             return;
