@@ -193,12 +193,28 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
         extras.push(dictionary);
     }
-    // 用户目录的术语表也当附加词库装上（与输入法一致）
+    // 用户目录的术语表与 dicts/ 也当附加词库装上（与输入法一致）
     if let Some(dir) = &args.user_dir {
         let path = dir.join("user-terms.tsv");
         if let Some(dictionary) = qingjian_platform::terms::dictionary(&path) {
             tracing::info!(path = %path.display(), entries = dictionary.len(), "用户术语表已加载");
             extras.push(dictionary);
+        }
+        let dicts = dir.join("dicts");
+        if dicts.is_dir() {
+            let mut count = 0;
+            for (_, path) in qingjian_platform::extra_dictionaries::list(&dicts) {
+                match Dictionary::from_path(&path) {
+                    Ok(dictionary) => {
+                        count += 1;
+                        extras.push(dictionary);
+                    }
+                    Err(error) => {
+                        tracing::warn!(path = %path.display(), %error, "用户词库读不了，跳过")
+                    }
+                }
+            }
+            tracing::info!(dir = %dicts.display(), count, "用户词库已加载");
         }
     }
     if !extras.is_empty() {
