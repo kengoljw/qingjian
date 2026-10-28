@@ -184,6 +184,14 @@ pub fn matches(term: &Term, query: &str) -> bool {
         .any(|text| text.to_lowercase().contains(&query))
 }
 
+/// 术语最多几个字：再长就是文档里的句子碎片，不算术语。
+pub const MAX_TERM_CHARS: usize = 6;
+
+/// 这条词面是不是超长（不算术语）。
+pub fn is_too_long(word: &str) -> bool {
+    word.trim().chars().count() > MAX_TERM_CHARS
+}
+
 /// 没打标签的归到「未分类」。
 pub fn tag_of(term: &Term) -> &str {
     if term.tag.is_empty() {
@@ -275,5 +283,13 @@ mod tests {
         assert_eq!(reloaded[0].japanese, "大家さん");
         assert!(path.with_extension("tsv.bak").exists());
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn rejects_words_longer_than_six_chars() {
+        assert!(!is_too_long("承租单元交付"));
+        assert!(!is_too_long("LED轨道灯"));
+        assert!(is_too_long("业主对租户画面审核内容"));
+        assert!(is_too_long("室内无风口围挡的结构改动"));
     }
 }
