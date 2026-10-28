@@ -213,9 +213,6 @@ impl Settings {
             }
             return;
         }
-        let (incoming, too_long): (Vec<_>, Vec<_>) = incoming
-            .into_iter()
-            .partition(|term| !crate::terms::is_too_long(&term.word));
         let imported: Vec<String> = incoming.iter().map(|term| term.word.clone()).collect();
         let mut entries = list.entries.clone();
         let (added, skipped) = crate::terms::import::merge(&mut entries, incoming);
@@ -245,14 +242,7 @@ impl Settings {
                 }
                 if let Some(paste) = self.term_paste.as_mut() {
                     paste.error = None;
-                    paste.result = Some((added, skipped + too_long.len()));
-                    if !too_long.is_empty() {
-                        paste.error = Some(format!(
-                            "有 {} 条超过 {} 个字，按录入错误跳过了",
-                            too_long.len(),
-                            crate::terms::MAX_TERM_CHARS
-                        ));
-                    }
+                    paste.result = Some((added, skipped));
                 }
             }
             Err(error) => {
@@ -279,20 +269,6 @@ impl Settings {
             return;
         };
         let original = list.entries.clone();
-        // 术语不超过 6 个字符：超过的基本都是文档里的句子碎片，录入时就拦下
-        if !delete {
-            let word = field(FieldId::TermWord);
-            if crate::terms::is_too_long(&word) {
-                if let Some(editor) = self.term.as_mut() {
-                    editor.error = Some(format!(
-                        "术语不超过 {} 个字（现在是 {} 个）",
-                        crate::terms::MAX_TERM_CHARS,
-                        word.chars().count()
-                    ));
-                }
-                return;
-            }
-        }
         let term = (!delete).then(|| {
             let mut term = Term {
                 word: field(FieldId::TermWord),
