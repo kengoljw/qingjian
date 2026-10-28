@@ -226,6 +226,10 @@ pub struct Engine {
     /// 上一次查询的摘要，上屏时写进输入日志。
     last_query: std::cell::RefCell<Option<query::QuerySnapshot>>,
 
+    /// 同一个输入串里已经给用户看过的首选（词库词优先时钉住，别被后到的整句顶掉）：
+    /// （输入串, 词面, 来源类型）。
+    first_kept: std::cell::RefCell<Option<(String, String, CandidateKind)>>,
+
     /// 上一次算过的拼写纠正：(作用域, 结果)。query 算一次，commit / take_raw 复用，别再跑一遍变体枚举。
     correction_cache: std::cell::RefCell<Option<(String, Option<Correction>)>>,
 
@@ -455,6 +459,7 @@ impl Engine {
             gloss_filler: Box::new(NoGlossFiller),
             displayed: Vec::new(),
             last_query: std::cell::RefCell::new(None),
+            first_kept: std::cell::RefCell::new(None),
             recording: Vec::new(),
             history: InputHistory::default(),
             prediction_sequence: 0,
