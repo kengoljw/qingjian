@@ -131,7 +131,10 @@ pub fn export(input: &Path, out_dir: &Path, strip_german_articles: bool) -> Resu
     let mut japanese = Vec::new();
     let mut vietnamese = Vec::new();
     let mut german = Vec::new();
+    let mut french = Vec::new();
+    let mut korean = Vec::new();
     let (mut en_count, mut ja_count, mut vi_count, mut de_count) = (0, 0, 0, 0);
+    let (mut fr_count, mut ko_count) = (0, 0);
     for entry in latest.values() {
         let pos = entry
             .pos
@@ -164,6 +167,22 @@ pub fn export(input: &Path, out_dir: &Path, strip_german_articles: bool) -> Resu
             }
             writeln!(vietnamese)?;
             vi_count += 1;
+        }
+        if !entry.fr.is_empty() {
+            write!(french, "{}", entry.word)?;
+            for sense in &entry.fr {
+                write!(french, "\t{pos}{sense}")?;
+            }
+            writeln!(french)?;
+            fr_count += 1;
+        }
+        if !entry.ko.is_empty() {
+            write!(korean, "{}", entry.word)?;
+            for sense in &entry.ko {
+                write!(korean, "\t{pos}{sense}")?;
+            }
+            writeln!(korean)?;
+            ko_count += 1;
         }
         if !entry.de.is_empty() {
             let is_noun = entry.pos.as_deref() == Some("n.");
@@ -200,6 +219,18 @@ pub fn export(input: &Path, out_dir: &Path, strip_german_articles: bool) -> Resu
     )?;
     write_if_non_empty(
         out_dir,
+        "glossary-fr.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
+        &french,
+    )?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-ko.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
+        &korean,
+    )?;
+    write_if_non_empty(
+        out_dir,
         "glossary-de.tsv",
         "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
         &german,
@@ -210,6 +241,8 @@ pub fn export(input: &Path, out_dir: &Path, strip_german_articles: bool) -> Resu
         japanese = ja_count,
         vietnamese = vi_count,
         german = de_count,
+        french = fr_count,
+        korean = ko_count,
         out_dir = %out_dir.display(),
         "导出完成"
     );
@@ -276,6 +309,8 @@ mod tests {
 
     fn german_entry(word: &str, pos: Option<&str>, de: &[&str]) -> GlossEntry {
         GlossEntry {
+            fr: Vec::new(),
+            ko: Vec::new(),
             word: word.to_owned(),
             pos: pos.map(str::to_owned),
             en: Vec::new(),
