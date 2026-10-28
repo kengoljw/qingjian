@@ -213,7 +213,9 @@ impl Router {
             let stamp = ThemeLibrary::stamp(&dir);
             if stamp != self.config.themes_stamp {
                 self.config.themes_stamp = stamp;
-                self.candidates.configure(self.config.render_settings());
+                let mut settings = self.config.render_settings();
+                settings.term_words = self.term_words.clone();
+                self.candidates.configure(settings);
             }
         }
         let Some(reload) = &mut self.reload else {
@@ -282,7 +284,7 @@ impl Router {
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
-        let previous = self.config.render_settings();
+        let previous = self.render_settings();
         let grid_keys = self.config.grid_keys();
         let next = RouterConfig::from(config);
         self.reload_mode(&next);
@@ -293,7 +295,7 @@ impl Router {
         if grid_keys && !self.config.grid_keys() {
             self.collapse_grid();
         }
-        let settings = self.config.render_settings();
+        let settings = self.render_settings();
         if settings != previous {
             self.candidates.configure(settings);
         }

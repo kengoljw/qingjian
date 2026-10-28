@@ -242,3 +242,15 @@ fn term_table_and_personal_glossary_reload_without_restart() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn term_words_survive_settings_rebuild() {
+    use std::collections::HashSet;
+    use std::sync::Arc;
+
+    let mut router = Router::new(Engine::new(Dictionary::default()), RouterConfig::default());
+    let words: Arc<HashSet<String>> = Arc::new(["围挡".to_owned()].into_iter().collect());
+    router.set_term_words(words.clone());
+    // 热加载里重建画法（主题戳变化 / apply_config）都要带着术语集合
+    assert!(router.render_settings().term_words.contains("围挡"));
+}
