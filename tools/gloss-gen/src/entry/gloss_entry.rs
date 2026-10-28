@@ -26,11 +26,24 @@ pub struct GlossEntry {
     /// 德文译词，最多两个，按常用度；名词含定冠词（`die Schule`）。
     #[serde(default)]
     pub de: Vec<String>,
+
+    /// 法文译词，最多两个，按常用度。
+    #[serde(default)]
+    pub fr: Vec<String>,
+
+    /// 韩文译词，最多两个，按常用度。
+    #[serde(default)]
+    pub ko: Vec<String>,
 }
 
 impl GlossEntry {
     /// 所有学习语言都没给出译词的条目没有用。
     pub fn is_useful(&self) -> bool {
-        !self.en.is_empty() || !self.ja.is_empty() || !self.vi.is_empty() || !self.de.is_empty()
+        !self.en.is_empty()
+            || !self.ja.is_empty()
+            || !self.vi.is_empty()
+            || !self.de.is_empty()
+            || !self.fr.is_empty()
+            || !self.ko.is_empty()
     }
 }

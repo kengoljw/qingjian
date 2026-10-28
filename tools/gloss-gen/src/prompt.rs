@@ -23,14 +23,24 @@ const MAX_GERMAN_CHARS: usize = 40;
 /// 德文译词最多几个单词（含名词前的定冠词）。
 const MAX_GERMAN_WORDS: usize = 4;
 
-pub const SYSTEM_PROMPT: &str = "你是多语词典编纂者。给每个中文词写最简短的英文、日文和越南文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+/// 法文译词：短语常带冠词与撇号（`chef de chantier`）。
+const MAX_FRENCH_CHARS: usize = 40;
+const MAX_FRENCH_WORDS: usize = 4;
+
+/// 韩文译词：谚文音节按字计，短语比汉字短。
+const MAX_KOREAN_CHARS: usize = 20;
+const MAX_KOREAN_WORDS: usize = 4;
+
+pub const SYSTEM_PROMPT: &str = "你是多语词典编纂者。给每个中文词写最简短的英文、日文、越南文、法文和韩文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
 - en：1 到 2 个最贴切的英文对应词，按常用度排；每个不超过 3 个英文单词；动词用原形，名词用单数；不要括号、不要解释、不要例句。\n\
 - ja：1 到 2 个最贴切的日文对应词，按常用度排；每个给 t（通常写法，汉字假名混写）和 r（t 的完整读音，只用平假名，外来语用片假名）；サ変动词写成「〜する」；不要解释。\n\
 - vi：1 到 2 个最贴切的越南文对应词，按常用度排；每个不超过 4 个越南文单词；动词用原形，名词用单数或最常用形式；使用越南语变音符；不要括号、不要解释、不要例句。\n\
+- fr：1 到 2 个最贴切的法文对应词，按常用度排；每个不超过 3 个法文单词；动词用不定式，名词不带冠词；保留重音符号（é/è/ç）；不要括号、不要解释。\n\
+- ko：1 到 2 个最贴切的韩文对应词，按常用度排；用谚文、不要汉字；动词给 -하다 原形；每条不超过 4 个词；不要括号、不要解释。\n\
 - 人名地名等专名照译（日文用惯用写法）；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
-输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"en\":[\"develop\",\"exploit\"],\"ja\":[{\"t\":\"開発する\",\"r\":\"かいはつする\"}],\"vi\":[\"phát triển\",\"khai thác\"]}]}。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"en\":[\"develop\",\"exploit\"],\"ja\":[{\"t\":\"開発する\",\"r\":\"かいはつする\"}],\"vi\":[\"phát triển\"],\"fr\":[\"développer\"],\"ko\":[\"개발하다\"]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
 pub const VIETNAMESE_ONLY_SYSTEM_PROMPT: &str = "你是汉越词典编纂者。给每个中文词写最简短的越南文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
@@ -39,6 +49,22 @@ pub const VIETNAMESE_ONLY_SYSTEM_PROMPT: &str = "你是汉越词典编纂者。�
 - vi：1 到 2 个最贴切的越南文对应词，按常用度排；每个不超过 4 个越南文单词；动词用原形，名词用单数或最常用形式；使用越南语变音符；不要括号、不要解释、不要例句。\n\
 - 人名地名等专名照译或用越南语常用写法；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
 输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"vi\":[\"phát triển\",\"khai thác\"]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const FRENCH_ONLY_SYSTEM_PROMPT: &str = "你是汉法词典编纂者。给每个中文词写最简短的法国语对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- fr：1 到 2 个最贴切的法文对应词，按常用度排；每个不超过 3 个法文单词；动词用不定式，名词不带冠词；保留重音符号（é/è/ç）；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"fr\":[\"développer\",\"exploiter\"]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const KOREAN_ONLY_SYSTEM_PROMPT: &str = "你是汉韩词典编纂者。给每个中文词写最简短的韩文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- ko：1 到 2 个最贴切的韩文对应词，按常用度排；用谚文、不要汉字；动词给 -하다 原形；每条不超过 4 个词；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译（韩文常用写法）；多义词只取最常用的义项；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"ko\":[\"개발하다\",\"개발\"]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
 pub const GERMAN_ONLY_SYSTEM_PROMPT: &str = "你是汉德词典编纂者。给每个中文词写最简短的德文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
@@ -56,6 +82,8 @@ pub struct GlossLanguages {
     ja: bool,
     vi: bool,
     de: bool,
+    fr: bool,
+    ko: bool,
 }
 
 impl GlossLanguages {
@@ -65,6 +93,8 @@ impl GlossLanguages {
             ja: false,
             vi: false,
             de: false,
+            fr: false,
+            ko: false,
         };
         for language in raw {
             match language.trim().to_ascii_lowercase().as_str() {
@@ -72,16 +102,26 @@ impl GlossLanguages {
                 "ja" | "jp" | "japanese" => languages.ja = true,
                 "vi" | "vi-vn" | "vietnamese" => languages.vi = true,
                 "de" | "german" => languages.de = true,
+                "fr" | "fr-fr" | "french" => languages.fr = true,
+                "ko" | "ko-kr" | "korean" => languages.ko = true,
                 other => tracing::warn!(language = other, "不认识的生成语言，跳过"),
             }
         }
-        if !languages.en && !languages.ja && !languages.vi && !languages.de {
+        if !languages.en
+            && !languages.ja
+            && !languages.vi
+            && !languages.de
+            && !languages.fr
+            && !languages.ko
+        {
             tracing::warn!("没有可生成的语言，按 en,ja");
             return Self {
                 en: true,
                 ja: true,
                 vi: false,
                 de: false,
+                fr: false,
+                ko: false,
             };
         }
         languages
@@ -93,17 +133,21 @@ impl GlossLanguages {
             ja: true,
             vi: true,
             de: true,
+            fr: true,
+            ko: true,
         }
     }
 
     pub fn label(self) -> &'static str {
-        match (self.en, self.ja, self.vi, self.de) {
-            (true, true, true, true) => "en,ja,vi,de",
-            (true, true, false, false) => "en,ja",
-            (false, false, false, true) => "de",
-            (false, false, true, false) => "vi",
-            (true, false, false, false) => "en",
-            (false, true, false, false) => "ja",
+        match (self.en, self.ja, self.vi, self.de, self.fr, self.ko) {
+            (true, true, true, true, true, true) => "en,ja,vi,de,fr,ko",
+            (true, true, false, false, false, false) => "en,ja",
+            (false, false, false, true, false, false) => "de",
+            (false, false, true, false, false, false) => "vi",
+            (true, false, false, false, false, false) => "en",
+            (false, true, false, false, false, false) => "ja",
+            (false, false, false, false, true, false) => "fr",
+            (false, false, false, false, false, true) => "ko",
             _ => "custom",
         }
     }
@@ -118,6 +162,8 @@ pub fn system_prompt(languages: GlossLanguages) -> &'static str {
             ja: false,
             vi: true,
             de: false,
+            fr: false,
+            ko: false,
         })
     {
         VIETNAMESE_ONLY_SYSTEM_PROMPT
@@ -127,9 +173,33 @@ pub fn system_prompt(languages: GlossLanguages) -> &'static str {
             ja: false,
             vi: false,
             de: true,
+            fr: false,
+            ko: false,
         })
     {
         GERMAN_ONLY_SYSTEM_PROMPT
+    } else if languages
+        == (GlossLanguages {
+            en: false,
+            ja: false,
+            vi: false,
+            de: false,
+            fr: true,
+            ko: false,
+        })
+    {
+        FRENCH_ONLY_SYSTEM_PROMPT
+    } else if languages
+        == (GlossLanguages {
+            en: false,
+            ja: false,
+            vi: false,
+            de: false,
+            fr: false,
+            ko: true,
+        })
+    {
+        KOREAN_ONLY_SYSTEM_PROMPT
     } else {
         SYSTEM_PROMPT
     }
@@ -169,6 +239,12 @@ struct RawItem {
 
     #[serde(default)]
     de: Vec<String>,
+
+    #[serde(default)]
+    fr: Vec<String>,
+
+    #[serde(default)]
+    ko: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -215,6 +291,16 @@ pub fn parse_reply_for_languages(
             } else {
                 Vec::new()
             },
+            fr: if languages.fr {
+                clean_latin_language(item.fr, MAX_FRENCH_CHARS, MAX_FRENCH_WORDS)
+            } else {
+                Vec::new()
+            },
+            ko: if languages.ko {
+                clean_korean(item.ko)
+            } else {
+                Vec::new()
+            },
         };
         if entry.is_useful() {
             entries.push(entry);
@@ -240,6 +326,34 @@ fn clean_latin_language(raw: Vec<String>, max_chars: usize, max_words: usize) ->
             out.push(text.to_owned());
         }
         if out.len() == MAX_SENSES {
+            break;
+        }
+    }
+    out
+}
+
+/// 韩文译词：谚文（含字母与音节），不能夹汉字或拉丁词。
+fn clean_korean(raw: Vec<String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for text in raw {
+        let text = text
+            .trim()
+            .trim_end_matches(['.', ';', ',', '。', '；', '，'])
+            .trim();
+        let ok = !text.is_empty()
+            && text.chars().count() <= MAX_KOREAN_CHARS
+            && text.split_whitespace().count() <= MAX_KOREAN_WORDS
+            && text
+                .chars()
+                .all(|c| c == ' ' || matches!(c as u32, 0xAC00..=0xD7A3 | 0x1100..=0x11FF));
+        if ok
+            && !out
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(text))
+        {
+            out.push(text.to_owned());
+        }
+        if out.len() >= MAX_SENSES {
             break;
         }
     }
@@ -354,6 +468,8 @@ mod tests {
                 ja: false,
                 vi: true,
                 de: false,
+                fr: false,
+                ko: false,
             },
         )
         .unwrap();
@@ -380,6 +496,8 @@ mod tests {
             ja: false,
             vi: false,
             de: true,
+            fr: false,
+            ko: false,
         };
         let entries = parse_reply_for_languages(content, &words, german_only).unwrap();
         // 学校（清洗后剩 die Schule）、房子；的 回抄汉字被丢弃
@@ -410,10 +528,52 @@ mod tests {
                 ja: false,
                 vi: false,
                 de: true,
+                fr: false,
+                ko: false,
             },
         )
         .unwrap();
         assert_eq!(entries[0].de, ["die Universität"]);
         assert_eq!(entries[1].de, ["der Freund"]);
     }
+}
+
+#[test]
+fn parses_french_and_korean_and_rejects_hanzi_in_korean() {
+    // 法文保留重音、韩文必须是谚文；韩文里混进汉字的那条要被丢掉
+    let reply =
+        r#"{"items":[{"w":"开发","pos":"v.","fr":["développer"],"ko":["개발하다","開発"]}]}"#;
+    let languages = GlossLanguages {
+        en: false,
+        ja: false,
+        vi: false,
+        de: false,
+        fr: true,
+        ko: true,
+    };
+    let entries = parse_reply_for_languages(reply, &["开发".to_owned()], languages).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].fr, vec!["développer".to_owned()]);
+    assert_eq!(entries[0].ko, vec!["개발하다".to_owned()]);
+    assert!(entries[0].is_useful());
+}
+
+#[test]
+fn language_codes_include_french_and_korean() {
+    let languages = GlossLanguages::parse(&["fr".to_owned(), "ko".to_owned()]);
+    assert!(
+        languages
+            == GlossLanguages {
+                en: false,
+                ja: false,
+                vi: false,
+                de: false,
+                fr: true,
+                ko: true,
+            }
+    );
+    assert_eq!(languages.label(), "custom");
+    assert!(GlossLanguages::all().label().contains("fr"));
+    assert!(GlossLanguages::all().label().contains("ko"));
+    assert!(system_prompt(languages).contains("fr"));
 }
