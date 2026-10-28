@@ -1,5 +1,8 @@
 //! 候选窗口的输出端。
 
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use qingjian_platform::protocol::{Frame, ScreenRect};
 use qingjian_platform::{CandidateRenderer, FontSize};
 use qingjian_render::Mode;
@@ -26,6 +29,9 @@ pub struct RenderSettings {
 
     /// 用户主题目录的戳（`ThemeLibrary::stamp`）：主题文件改了它就变，UI 线程据此重读主题。
     pub themes_stamp: u64,
+
+    /// 术语表里的词：候选窗给这些词的注解加个标记，跟普通释义区分开。
+    pub term_words: Arc<HashSet<String>>,
 }
 
 /// Router 只产出帧，画交给它；Windows 上由 UI 线程实现。

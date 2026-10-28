@@ -1,6 +1,8 @@
 //! 候选窗口一次绘制要用的全部内容，由帧换算而来；渲染器要的帧由 [`RenderData::render_frame`] 再换一次。
 
+use std::collections::HashSet;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use qingjian_platform::protocol::{Frame, PreeditKind};
 use qingjian_platform::{Appearance, LayoutMode};
@@ -55,6 +57,14 @@ pub(crate) struct RenderData {
 
     /// 输入状态，给主题显示中 / 英、简 / 繁等。
     pub(super) mode: Mode,
+
+    /// 术语表里的词：命中就在注解前加个标记，跟普通释义区分开。
+    pub(super) term_words: Arc<HashSet<String>>,
+}
+
+/// 术语候选的注解标记：一个实心方块 + 强调色，跟普通释义分开。
+pub(super) fn term_marker(is_term: bool) -> Option<(String, qingjian_render::Tone)> {
+    is_term.then(|| ("◆ ".to_owned(), qingjian_render::Tone::Fresh))
 }
 
 impl RenderData {
@@ -75,6 +85,7 @@ impl RenderData {
             show_code: false,
             show_pos: true,
             mode: Mode::default(),
+            term_words: Arc::new(HashSet::new()),
         }
     }
 
@@ -103,6 +114,10 @@ impl RenderData {
                     self.show_code,
                     self.show_pos,
                 );
+                if let Some(marker) = term_marker(self.term_words.contains(candidate.text.as_str()))
+                {
+                    row.annotation.insert(0, marker);
+                }
                 if grid {
                     let labelled =
                         Some(i / frame.columns) == highlight_row && !candidate.text.is_empty();
@@ -168,6 +183,7 @@ fn window_preedit(frame: &Frame) -> Vec<(String, PreeditKind)> {
 
 #[cfg(test)]
 mod tests {
+    use super::term_marker;
     use qingjian_platform::PreeditMode;
     use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
 
@@ -190,5 +206,11 @@ mod tests {
         assert_eq!(window_preedit(&frame(PreeditMode::Both)).len(), 1);
         assert_eq!(window_preedit(&frame(PreeditMode::Window)).len(), 1);
         assert!(window_preedit(&frame(PreeditMode::Inline)).is_empty());
+    }
+
+    #[test]
+    fn terms_get_a_marker_and_others_do_not() {
+        assert!(term_marker(true).is_some());
+        assert!(term_marker(false).is_none());
     }
 }

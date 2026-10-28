@@ -157,6 +157,7 @@ impl RouterConfig {
             font_sizes: self.font_sizes,
             animations: self.animations,
             themes_stamp: self.themes_stamp,
+            term_words: std::sync::Arc::new(std::collections::HashSet::new()),
         }
     }
 }

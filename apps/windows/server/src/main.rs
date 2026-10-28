@@ -238,6 +238,8 @@ fn main() {
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
+    // 术语词集合：候选窗据此给术语注解加标记
+    router.set_term_words(dispatch::term_words(user_dir().as_deref()));
     let model_path = dispatch::find_model(user_dir().as_deref(), &root);
     router.configure_local_model(model_path.clone(), &config.model);
     router.configure_code_table(dispatch::find_code_table(user_dir().as_deref(), &root));

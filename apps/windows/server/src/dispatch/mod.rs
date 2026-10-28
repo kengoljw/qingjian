@@ -95,6 +95,9 @@ pub struct Router {
     /// 配置热加载状态；`None` 表示不热加载。
     reload: Option<ConfigReload>,
 
+    /// 术语表里的词（候选窗给它们的注解加标记）。热加载换术语表时一起换。
+    term_words: std::sync::Arc<std::collections::HashSet<String>>,
+
     /// 候选窗口输出端；Windows 上由 [`crate::ui`] 注入。
     candidates: Box<dyn CandidateSink>,
 
@@ -146,6 +149,21 @@ pub struct Router {
     rescore: RescoreState,
 }
 
+/// 读用户目录的术语表，取词集合（候选窗给术语注解加标记）。
+pub fn term_words(
+    user_dir: Option<&std::path::Path>,
+) -> std::sync::Arc<std::collections::HashSet<String>> {
+    let Some(dir) = user_dir else {
+        return std::sync::Arc::new(std::collections::HashSet::new());
+    };
+    let path = dir.join("user-terms.tsv");
+    let words = qingjian_platform::terms::load(&path)
+        .into_iter()
+        .map(|term| term.word)
+        .collect();
+    std::sync::Arc::new(words)
+}
+
 impl Router {
     pub fn new(engine: Engine, config: RouterConfig) -> Self {
         let english = config.english_mode && config.default_english;
@@ -169,6 +187,7 @@ impl Router {
             navigated: false,
             last_flush: Instant::now(),
             reload: None,
+            term_words: std::sync::Arc::new(std::collections::HashSet::new()),
             candidates: Box::new(NoopSink),
             status: Box::new(NoopStatusSink),
             english,
@@ -219,7 +238,7 @@ impl Router {
     }
 
     pub fn set_candidate_sink(&mut self, sink: Box<dyn CandidateSink>) {
-        sink.configure(self.config.render_settings());
+        sink.configure(self.render_settings());
         self.candidates = sink;
     }
 
