@@ -57,6 +57,7 @@ impl ScrollArea {
             &[content],
         )?;
         let mut children = vec![moved];
+        let mut bar_node: Option<NodeId> = None;
         if let Some(extent) = extent.filter(|extent| extent.max().1 > 0.0) {
             let (viewport, total) = (extent.viewport.1, extent.content.1);
             let inset = theme.px(BAR_INSET);
@@ -85,9 +86,8 @@ impl ScrollArea {
                 &[],
             )?;
             ui.fade(bar, key.child("bar"), theme.flip, Easing::Ease);
-            // 滑块可以按住拖动：按比例改视口的滚动位置
-            ui.interact(bar, key.child("bar"), Interact::new().drags_scroll(key));
             children.push(bar);
+            bar_node = Some(bar);
         }
         let viewport = ui.scene().node(
             Style {
@@ -106,7 +106,16 @@ impl ScrollArea {
             &children,
         )?;
         ui.scene().set_clip(viewport, 0.0);
-        ui.interact(viewport, key, Interact::new().scrolls(moved));
+        // 没得滚就别占着指针：嵌套滚动时外层视口会盖住里层的滑块，导致谁也拖不动。
+        // 第一帧还不知道大小（extent 为 None），先注册，下一帧按实际溢出与否重算。
+        let overflows = extent.is_none_or(|extent| extent.max().0 > 1.0 || extent.max().1 > 1.0);
+        if overflows {
+            ui.interact(viewport, key, Interact::new().scrolls(moved));
+        }
+        // 滑块最后注册：命中取最上面那个元素，早注册会被视口盖住，拖不动
+        if let Some(bar) = bar_node {
+            ui.interact(bar, key.child("bar"), Interact::new().drags_scroll(key));
+        }
         Ok(viewport)
     }
 }

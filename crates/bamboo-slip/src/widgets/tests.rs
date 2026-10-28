@@ -347,3 +347,155 @@ fn info_marks_with_a_link_send_it_when_clicked() {
     );
     assert!(click(&mut interaction, Key::ROOT.child(("info", "没链接"))).is_empty());
 }
+
+#[test]
+fn dragging_the_scrollbar_scrolls_the_content() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let mut interaction = Interaction::<Message>::new();
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    // 视口 200 高、内容 1000 高：滚动条会出现，滑块约 40 像素。
+    // 头两帧建立 extent，第二帧才有滑块可拖。
+    for _ in 0..2 {
+        let mut ui = Ui::new(&interaction);
+        let content = ui
+            .scene()
+            .node(
+                Style {
+                    size: taffy::Size {
+                        width: taffy::Dimension::length(200.0),
+                        height: taffy::Dimension::length(1000.0),
+                    },
+                    flex_shrink: 0.0,
+                    ..Style::default()
+                },
+                Visual::Group,
+                &[],
+            )
+            .unwrap();
+        let viewport = ScrollArea::new(Style {
+            size: taffy::Size {
+                width: taffy::Dimension::length(200.0),
+                height: taffy::Dimension::length(200.0),
+            },
+            flex_shrink: 0.0,
+            ..Style::default()
+        })
+        .build(&mut ui, &theme, "scroll", content)
+        .unwrap();
+        let root = ui
+            .scene()
+            .node(Style::default(), Visual::Group, &[viewport])
+            .unwrap();
+        let (mut scene, elements) = ui.finish();
+        layout(&mut scene, root, &mut text);
+        interaction.attach(&scene, root, elements).unwrap();
+    }
+
+    let bar = Key::ROOT.child("scroll").child("bar");
+    let (x, y, width, height) = interaction.rect(bar).expect("第一帧后应出现滑块");
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0,
+    });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0 + 40.0,
+    });
+    assert!(
+        interaction.scroll_offset(Key::ROOT.child("scroll")).1 > 0.0,
+        "按住滑块往下拖，内容应跟着滚"
+    );
+    interaction.handle(&Event::PointerUp);
+}
+
+#[test]
+fn inner_scrollbar_stays_draggable_under_a_non_scrolling_outer_scroll() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let mut interaction = Interaction::<Message>::new();
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    for _ in 0..3 {
+        let mut ui = Ui::new(&interaction);
+        let tall = ui
+            .scene()
+            .node(
+                Style {
+                    size: taffy::Size {
+                        width: taffy::Dimension::length(200.0),
+                        height: taffy::Dimension::length(1000.0),
+                    },
+                    flex_shrink: 0.0,
+                    ..Style::default()
+                },
+                Visual::Group,
+                &[],
+            )
+            .unwrap();
+        let inner = ScrollArea::new(Style {
+            size: taffy::Size {
+                width: taffy::Dimension::length(200.0),
+                height: taffy::Dimension::length(200.0),
+            },
+            flex_shrink: 0.0,
+            ..Style::default()
+        })
+        .build(&mut ui, &theme, "inner", tall)
+        .unwrap();
+        // 外层正好装下内层，没有溢出：它不该占着指针
+        let outer_content = ui
+            .scene()
+            .node(
+                Style {
+                    flex_direction: FlexDirection::Column,
+                    size: taffy::Size {
+                        width: taffy::Dimension::length(200.0),
+                        height: taffy::Dimension::length(200.0),
+                    },
+                    flex_shrink: 0.0,
+                    ..Style::default()
+                },
+                Visual::Group,
+                &[inner],
+            )
+            .unwrap();
+        let outer = ScrollArea::new(Style {
+            size: taffy::Size {
+                width: taffy::Dimension::length(200.0),
+                height: taffy::Dimension::length(200.0),
+            },
+            flex_shrink: 0.0,
+            ..Style::default()
+        })
+        .build(&mut ui, &theme, "outer", outer_content)
+        .unwrap();
+        let root = ui
+            .scene()
+            .node(Style::default(), Visual::Group, &[outer])
+            .unwrap();
+        let (mut scene, elements) = ui.finish();
+        layout(&mut scene, root, &mut text);
+        interaction.attach(&scene, root, elements).unwrap();
+    }
+
+    let bar = Key::ROOT.child("inner").child("bar");
+    let (x, y, width, height) = interaction.rect(bar).expect("内层滑块应存在");
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0,
+    });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0 + 40.0,
+    });
+    assert!(
+        interaction.scroll_offset(Key::ROOT.child("inner")).1 > 0.0,
+        "外层没溢出时不该抢走指针，内层滑块要能拖"
+    );
+    assert_eq!(
+        interaction.scroll_offset(Key::ROOT.child("outer")).1,
+        0.0,
+        "外层不该跟着滚"
+    );
+    interaction.handle(&Event::PointerUp);
+}

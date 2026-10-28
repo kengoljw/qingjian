@@ -31,16 +31,17 @@ impl<M: Clone> Interaction<M> {
         let Some(extent) = self.extents.get(&scroller).copied() else {
             return false;
         };
-        let (_, _, _, thumb) = element.rect();
+        let (_, thumb_top, _, thumb) = element.rect();
         let max = extent.max().1;
         if max <= 0.0 || thumb <= 0.0 {
             return false;
         }
         // 滑块能走多远 = 视口高 - 滑块高；每一像素对应 max / 这段距离 的内容
         let travel = (extent.viewport.1 - thumb).max(1.0);
-        let top_in_view = (pointer_y - grab) - element.rect().1;
+        // 这一帧指针把滑块挪了多少，再按比例换成滚动量累加上去
+        let delta = (pointer_y - grab) - thumb_top;
         let old = self.scroll_offset(scroller);
-        let offset = (top_in_view / travel * max).clamp(0.0, max);
+        let offset = (old.1 + delta / travel * max).clamp(0.0, max);
         if (offset - old.1).abs() < 0.5 {
             return false;
         }
