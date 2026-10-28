@@ -126,6 +126,7 @@ impl Router {
         let last_mtime = mtime(&config_path);
         let code_files = dirs.code_snapshot();
         let dictionary_files = dirs.dict_snapshot();
+        let data_files = dirs.data_snapshot();
         let updates = dirs.user_root.as_deref().map(|dir| {
             qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), env!("CARGO_PKG_VERSION"))
         });
@@ -140,6 +141,7 @@ impl Router {
             applied_dictionaries: config.dictionaries.clone(),
             applied_aux_code: config.aux_code.clone(),
             dictionary_files,
+            data_files,
             applied_language: assembly::learning_language(config),
             update: config.update.clone(),
             updates,
@@ -166,6 +168,24 @@ impl Router {
             self.engine
                 .set_extra_dictionaries(reload.load_dictionaries());
             reload.dictionary_files = files;
+        }
+        // 术语表 / 个人释义表改了（设置程序改术语就会重写它们）：附加词库与释义表当场重装，
+        // 用户改完译名，候选窗与排序立刻跟着变，不必重启 Server。
+        let data_changed = {
+            let current = reload.dirs.data_snapshot();
+            let changed = current != reload.data_files;
+            reload.data_files = current;
+            changed
+        };
+        if data_changed {
+            let dictionaries = reload.load_dictionaries();
+            self.engine.set_extra_dictionaries(dictionaries);
+            let language = reload.applied_language;
+            let user_dir = reload.dirs.user_root.clone();
+            let root = reload.root.clone();
+            if swap_translator(&mut self.engine, language, &root, user_dir.as_deref()) {
+                tracing::info!("术语表或个人释义表已更新，附带词库与释义表已重装");
+            }
         }
         // 用户主题文件改了：戳变了设置就不等，UI 线程重读主题当场换上（边改主题边看效果）
         if let Some(dir) = qingjian_platform::dirs::themes_dir() {
