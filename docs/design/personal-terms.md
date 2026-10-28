@@ -80,7 +80,8 @@
 
 - 合并脚本：`.toolchain/merge_terms.py`（本机，不进仓库）；读音由 `pypinyin` 整词判断（装在 `data/pylib`，
   与自带词库重合的 117 条读音**零冲突**），缺读音的只在「不进拼音候选」的商务沟通条目上。
-- 新增术语的入口：术语页（写好之后）→ `user-terms.tsv`；过渡期直接改 `unified.tsv` 并跑一次合并脚本。
+- 新增术语的入口：术语页 → `user-terms.tsv`；**设置程序里改过的译名会在 merge 前被吸收回**
+  `unified/manual-overrides.tsv`（`pipeline/absorb_user_edits.py`），不会被重建统一表冲掉。
 - 不进仓库、不进发布包：`data/` 已 gitignore；发布物里的领域词库是另一条路（自建核心表审核后再打包）。
 
 
@@ -91,6 +92,10 @@
 - 多个术语命中同一页时各自注解，不合并。
 
 ## 术语表
+
+**长度上限：6 个字。** 再长基本都是文档里的句子碎片（这次从 768 条里清掉 139 条 7–12 字的），
+合并脚本、设置页保存、粘贴导入三处都按这条拦；清掉的条目留档在 `data/terms/unified/removed-long-terms.tsv`。
+
 
 - 文件：用户数据目录 `user-terms.tsv`（macOS / Linux 各自的用户目录，Windows 是 `%APPDATA%\Qingjian\`），
   13 列 `词 ⇥ 读音 ⇥ 标签 ⇥ 进拼音候选 ⇥ 英文 ⇥ 其他译法 ⇥ 备注 ⇥ 来源 ⇥ 录入日期 ⇥ 日 ⇥ 西 ⇥ 法 ⇥ 韩`；
