@@ -15,6 +15,27 @@ fn poll(router: &mut Router) {
     router.poll_config_reload();
 }
 
+/// 拿一个词的译文：构造一条候选交给 `annotate`，看它挂上的 translation。
+fn translation_of(router: &Router, word: &str) -> Option<String> {
+    let mut list = qingjian_core::CandidateList {
+        items: vec![qingjian_core::Candidate {
+            text: word.to_owned(),
+            kind: qingjian_core::CandidateKind::Chinese,
+            syllables: Vec::new(),
+            reading: None,
+            translation: None,
+            aux_code: None,
+            settled: true,
+        }],
+    };
+    router.engine.annotate(&mut list);
+    list.items
+        .first()
+        .and_then(|candidate| candidate.translation.as_ref())
+        .and_then(|translation| translation.senses().first())
+        .map(|sense| sense.text.clone())
+}
+
 fn modified_at(path: &Path, seconds: u64) {
     std::fs::File::options()
         .write(true)
@@ -151,4 +172,73 @@ fn dictionary_changes_do_not_retry_broken_config() {
     assert_eq!(router.config.page_size, 9);
     drop(router);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn term_table_and_personal_glossary_reload_without_restart() {
+    let dir = std::env::temp_dir().join(format!("qingjian-reload-terms-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let config_path = dir.join("config.toml");
+    // 学习语言显式写英文：personal glossary 要按语言找文件
+    std::fs::write(&config_path, "[general]\nlearning_language = \"en\"\n").unwrap();
+    let config = Config::load(&config_path).unwrap();
+
+    let mut router = Router::new(Engine::new(Dictionary::default()), RouterConfig::default());
+    router.watch_config(
+        &config,
+        config_path.clone(),
+        dir.clone(),
+        DataDirs {
+            user_root: Some(dir.clone()),
+            user_dicts: Some(dir.join("dicts")),
+            ..DataDirs::default()
+        },
+    );
+
+    // 随包英文释义表放在 `<root>/assets/glossary/`（与 `assembly::glossary_file` 一致）；
+    // 这些文件在 watch_config 之后出现，第一次 poll 就会当成「数据变了」，装释义表与附加词库。
+    let glossary_dir = dir.join("assets/glossary");
+    std::fs::create_dir_all(&glossary_dir).unwrap();
+    std::fs::write(glossary_dir.join("glossary-en.tsv"), "围挡\tbarricade\n").unwrap();
+    std::fs::write(
+        dir.join("user-terms.tsv"),
+        "围挡\twei dang\t工程施工\tY\tbarricade\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("user-glossary-en.tsv"), "围挡\tbarricade\n").unwrap();
+    poll(&mut router);
+    assert_eq!(
+        translation_of(&router, "围挡"),
+        Some("barricade".to_owned())
+    );
+
+    // 用户在设置里把译名改成 hoarding：术语表与个人释义表都会被重写
+    std::fs::write(
+        dir.join("user-terms.tsv"),
+        "围挡\twei dang\t工程施工\tY\thoarding\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("user-glossary-en.tsv"), "围挡\thoarding\n").unwrap();
+    poll(&mut router);
+    assert_eq!(
+        translation_of(&router, "围挡"),
+        Some("hoarding".to_owned()),
+        "改了术语译名，不重启也该读到新的"
+    );
+
+    // 新加一条术语：附加词库当场重装，能查着
+    std::fs::write(
+        dir.join("user-terms.tsv"),
+        "围挡\twei dang\t工程施工\tY\thoarding\n总包\tzong bao\t工程施工\tY\tmain contractor\n",
+    )
+    .unwrap();
+    poll(&mut router);
+    let dictionaries = router.engine.extra_dictionaries();
+    assert!(
+        dictionaries
+            .iter()
+            .any(|dictionary| !dictionary.lookup(&["zong", "bao"], false).is_empty()),
+        "新加的术语应该不用重启就进词库"
+    );
+    std::fs::remove_dir_all(&dir).ok();
 }

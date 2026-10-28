@@ -40,6 +40,25 @@ impl DataDirs {
     }
 
     /// 用户 `dicts/` 的同一份快照；没配目录为空。
+    /// 用户数据目录里「改了要立刻生效」的那几个文件（术语表、各语言个人释义表）的快照。
+    /// 只列存在的：不存在就说明还没建，建出来时快照会多一项，也算变化。
+    pub(super) fn data_snapshot(&self) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
+        let Some(root) = self.user_root.as_deref() else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        let mut push = |path: PathBuf| {
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                out.push((path, metadata.modified().ok(), metadata.len()));
+            }
+        };
+        push(root.join("user-terms.tsv"));
+        for code in ["en", "ja", "es", "fr", "ko"] {
+            push(root.join(format!("user-glossary-{code}.tsv")));
+        }
+        out
+    }
+
     pub(super) fn dict_snapshot(&self) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
         self.user_dicts
             .as_deref()
@@ -61,6 +80,9 @@ pub(crate) struct ConfigReload {
 
     /// 随包与用户数据目录。
     pub(super) dirs: DataDirs,
+
+    /// 上次看到的术语表 / 个人释义表快照（逐文件 mtime + 长度）：设置程序改了术语，这里下一拍就重装。
+    pub(super) data_files: Vec<(PathBuf, Option<SystemTime>, u64)>,
 
     /// 上次看到的码表文件快照（逐文件 mtime + 长度）：设置页刚导入一张表、或手工拷进半个
     /// `.qj` 后补全，都靠它即时生效。
