@@ -12,6 +12,7 @@ use crate::system::paths;
 pub mod blocked;
 pub mod editor;
 pub mod gloss;
+pub mod glossary;
 pub mod import;
 pub mod pending;
 

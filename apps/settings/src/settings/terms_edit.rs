@@ -153,6 +153,15 @@ impl Settings {
         if let Some(row) = self.pending.get_mut(index) {
             row.status = crate::terms::pending::Status::Accepted;
         }
+        // 术语是译名的唯一权威：写完术语表就把各语言的个人释义表重算一遍，
+        // 否则候选窗注解还是旧的（用户改「围挡」译名不生效就是这个原因）。
+        if let Some(path) = path()
+            && let Some(list) = self.terms.as_ref()
+        {
+            let (languages, total) = crate::terms::glossary::sync(&path, &list.entries);
+            tracing::info!(languages, total, "已按术语表重写个人释义表");
+        }
+
         let _ = crate::terms::pending::save(&self.pending);
         self.term_notice = Some(format!("「{}」的{}译名已确认", row.word, row.lang.label()));
     }
@@ -222,6 +231,14 @@ impl Settings {
                     list.entries = entries;
                     list.blocked = blocked;
                     list.error = None;
+                }
+                // 术语是译名的唯一权威：写完术语表就把各语言的个人释义表重算一遍，
+                // 否则候选窗注解还是旧的（用户改「围挡」译名不生效就是这个原因）。
+                if let Some(path) = path()
+                    && let Some(list) = self.terms.as_ref()
+                {
+                    let (languages, total) = crate::terms::glossary::sync(&path, &list.entries);
+                    tracing::info!(languages, total, "已按术语表重写个人释义表");
                 }
                 if let Some(paste) = self.term_paste.as_mut() {
                     paste.error = None;
@@ -304,6 +321,14 @@ impl Settings {
                     list.entries = entries;
                     list.blocked = blocked;
                     list.error = None;
+                }
+                // 术语是译名的唯一权威：写完术语表就把各语言的个人释义表重算一遍，
+                // 否则候选窗注解还是旧的（用户改「围挡」译名不生效就是这个原因）。
+                if let Some(path) = path()
+                    && let Some(list) = self.terms.as_ref()
+                {
+                    let (languages, total) = crate::terms::glossary::sync(&path, &list.entries);
+                    tracing::info!(languages, total, "已按术语表重写个人释义表");
                 }
                 self.close_term();
             }
