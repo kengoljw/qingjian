@@ -125,6 +125,11 @@ impl CandidateWindow {
         })
     }
 
+    /// 换术语词集合（配置热加载时调）。
+    pub(crate) fn set_term_words(&self, words: std::sync::Arc<std::collections::HashSet<String>>) {
+        self.data.borrow_mut().term_words = words;
+    }
+
     /// 刷新内容（不定位、不显示）。
     pub(crate) fn set_content(&self, frame: &Frame, mode: Mode) {
         self.data.borrow_mut().set(frame, mode);

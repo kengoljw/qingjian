@@ -261,7 +261,10 @@ fn apply(
                 status.hide();
             }
         }
-        UiCommand::Configure(settings) => Painter::configure(painter, &settings),
+        UiCommand::Configure(settings) => {
+            window.set_term_words(settings.term_words.clone());
+            Painter::configure(painter, &settings);
+        }
     }
 }
 

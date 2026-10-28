@@ -22,6 +22,7 @@ pub(super) const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// 检查更新的结果文件名，在用户数据目录下（见 `qingjian-update::UpdateState`）。
 const UPDATE_STATE_FILE: &str = "update.json";
+use super::candidates::RenderSettings;
 use super::{Router, RouterConfig};
 use crate::assembly;
 
@@ -106,6 +107,20 @@ impl Router {
         })
     }
 
+    /// 换术语词集合：候选窗据此给术语注解加标记。
+    pub fn set_term_words(&mut self, words: std::sync::Arc<std::collections::HashSet<String>>) {
+        self.term_words = words;
+        let settings = self.render_settings();
+        self.candidates.configure(settings);
+    }
+
+    /// 画法设置：跟配置走，另加术语词集合。
+    pub(super) fn render_settings(&self) -> RenderSettings {
+        let mut settings = self.config.render_settings();
+        settings.term_words = self.term_words.clone();
+        settings
+    }
+
     /// `config.toml` 路径；没开热加载（测试）时为 `None`。
     pub(super) fn config_path(&self) -> Option<&Path> {
         self.reload
@@ -180,6 +195,12 @@ impl Router {
         if data_changed {
             let dictionaries = reload.load_dictionaries();
             self.engine.set_extra_dictionaries(dictionaries);
+            // 术语表换了，候选窗的术语标记跟着换（直接改字段：这里 reload 还借着 self）
+            let words = super::term_words(reload.dirs.user_root.as_deref());
+            self.term_words = words.clone();
+            let mut settings = self.config.render_settings();
+            settings.term_words = words;
+            self.candidates.configure(settings);
             let language = reload.applied_language;
             let user_dir = reload.dirs.user_root.clone();
             let root = reload.root.clone();
