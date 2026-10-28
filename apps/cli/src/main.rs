@@ -170,16 +170,38 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         english_ms = english_load.as_millis(),
         "加载完成"
     );
+    // 有用户目录就把个人释义表叠在随包表之上（候选窗注解与输入法一致）
+    let translator: Box<dyn qingjian_core::Translator> = match &args.user_dir {
+        Some(dir) => {
+            let personal = qingjian_translate::PersonalGlossary::open(
+                language,
+                dir.join(format!("user-glossary-{}.tsv", language.code())),
+            );
+            tracing::info!(entries = personal.len(), "个人释义表已加载");
+            Box::new(qingjian_translate::LayeredTranslator::new(
+                glossary, personal,
+            ))
+        }
+        None => Box::new(glossary),
+    };
     let mut engine = Engine::new(dictionary)
-        .with_translator(Box::new(glossary))
+        .with_translator(translator)
         .with_learner(Box::new(learner));
-    if !args.extra_dict.is_empty() {
-        let mut extras = Vec::new();
-        for path in &args.extra_dict {
-            let dictionary = Dictionary::from_path(path)?;
-            tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
+    let mut extras = Vec::new();
+    for path in &args.extra_dict {
+        let dictionary = Dictionary::from_path(path)?;
+        tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
+        extras.push(dictionary);
+    }
+    // 用户目录的术语表也当附加词库装上（与输入法一致）
+    if let Some(dir) = &args.user_dir {
+        let path = dir.join("user-terms.tsv");
+        if let Some(dictionary) = qingjian_platform::terms::dictionary(&path) {
+            tracing::info!(path = %path.display(), entries = dictionary.len(), "用户术语表已加载");
             extras.push(dictionary);
         }
+    }
+    if !extras.is_empty() {
         engine.set_extra_dictionaries(extras);
     }
     // 英文候选的中文释义可选

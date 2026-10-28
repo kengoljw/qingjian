@@ -98,6 +98,11 @@ pub struct Args {
     #[arg(long, value_name = "码表")]
     pub wubi: Option<PathBuf>,
 
+    /// 用户数据目录（`%APPDATA%\Qingjian`）：装上那里的术语表与个人释义表，
+    /// 评测才按你实际用的词库与注解来（不给就只用随包数据）
+    #[arg(long)]
+    pub user_dir: Option<PathBuf>,
+
     /// 神经重打分：字级 Transformer 的 .qjm 文件或导出目录（model.safetensors / config.json / vocab.json），整句前几条路径用它重排
     #[arg(long)]
     pub neural: Option<PathBuf>,
