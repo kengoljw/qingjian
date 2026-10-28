@@ -48,6 +48,13 @@ apps/macos/scripts/bundle.sh --install        # mac 壳装到 ~/Library/Input Me
 Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真机测试在 Windows 机器上做（部署方式见 `apps/windows/README.md`）；
 端到端验证 mac 可用 `osascript` 往 TextEdit 发按键再读回文本。
 
+## 开发前先看
+
+- 改 UI / 数据 / 构建脚本之前，先扫一眼 [docs/notes/pitfalls.md](docs/notes/pitfalls.md)：
+  这一轮术语页反复踩过的坑（布局把滚动区撑爆、拖拽命中顺序、译名两处来源、热加载漏用户数据、
+  中文引号与编码、沙箱管道与 TEMP 等）都写清了根因与规矩。
+- 用户报的现象先写一条端到端复现（真实 Runner 走事件链，或真实 Server 日志），修完那条必须转绿。
+
 ## 约定
 
 架构约束、代码组织、版本号、提交信息、文档同步、提交前检查与发版都在 `docs/contributing.md`，随本文件一起载入：

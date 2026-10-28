@@ -36,6 +36,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [notes/constant-sweep.md](notes/constant-sweep.md) | 排序常数扫描（2026-09-12）：插值与敲错代价在冻结日志上扫网格，全在平台区不改；没命中的构成与复现步骤 |
 | [notes/windows-win10.md](notes/windows-win10.md) | Windows 10 与设置程序（2026-09-13）：Reactor 早期绑定 Windows 11 才有的 AppModel API 导致加载期失败，改自包含部署 + 延迟加载 |
 | [notes/ime-lm-eval.md](notes/ime-lm-eval.md) | 上游 chinese-ime-lm 同池评测（2026-10-22）：13,622 句上 4M / 25M 重排分别 −3.88pp / −1.55pp（McNemar 均显著），对照 P2C +4.09pp；按决策门停在保留评测资产 |
+| [notes/pitfalls.md](notes/pitfalls.md) | 踩坑复盘（2026-10-28）：术语页这一轮反复踩到的 12 类坑——双会话抢工作区、中文引号与编码、沙箱管道与 TEMP、立即模式布局把滚动区撑爆、滚动条三连坑、译名两处来源、热加载漏用户数据、正则转义、端到端复现 |
 | [notes/domain-lexicon-sources.md](notes/domain-lexicon-sources.md) | 领域词库数据源调研（2026-10-23）：工程施工 / 项目管理 / 建筑设计 / 机电 / 商业品牌 / 二次元 六个领域逐个核许可；结论是五个工作领域没有可随包的干净词表，走自建核心表 + 政府公文/维基语料挖词 |
 
 约定：文档写中文，代码标识符一律英文。实现与文档产生分歧时以代码为准，并同步更新文档。
