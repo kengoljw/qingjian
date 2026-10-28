@@ -2,5 +2,7 @@
 
 #[cfg(test)]
 mod config_keys;
+#[cfg(test)]
+mod drag_test;
 mod sample;
 pub mod snapshot;

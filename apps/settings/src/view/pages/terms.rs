@@ -21,6 +21,9 @@ const PAGE_SIZE: usize = 60;
 /// 对话框宽度（点）。
 const DIALOG_WIDTH: f32 = 460.0;
 
+/// 列表页签页头大约占多少点（摘要 + 两行 + 标签），给列表留高度时扣掉它。
+const HEADER_POINTS: f32 = 210.0;
+
 pub fn terms(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let mut fixed = Vec::new();
@@ -109,6 +112,7 @@ fn tabs(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, Rende
 }
 
 /// 术语列表页签：搜索 / 生成 / 新增 / 标签固定，只有列表滚。
+/// 列表页签：两行页头固定，列表给确定高度、自己滚。
 fn list_tab(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
     let mut fixed = Vec::new();
@@ -120,15 +124,25 @@ fn list_tab(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, R
     if list.blocked > 0 {
         summary.push_str(&format!(" · 屏蔽表 {} 条", list.blocked));
     }
+    if !list.marked.is_empty() {
+        summary.push_str(&format!(" · 已勾 {} 条", list.marked.len()));
+    }
     fixed.push(paragraph(ui, theme, &summary, None)?);
     fixed.push(header(ui, page)?);
     fixed.push(chips(ui, page, list)?);
     if let Some(error) = &list.error {
         fixed.push(paragraph(ui, theme, error, None)?);
     }
+
+    // 页头占的高度是估的，超出部分会被裁掉一点；宁可少给 20 点也别让列表被挤出窗外
+    let body_height = (page.content_height - page.px(HEADER_POINTS)).max(page.px(120.0));
     let body = list_body(ui, page, list)?;
     let scroll = ScrollArea::new(Style {
-        flex_grow: 1.0,
+        size: Size {
+            width: Dimension::percent(1.0),
+            height: Dimension::length(body_height),
+        },
+        flex_shrink: 0.0,
         min_size: Size {
             width: LengthPercentageAuto::length(0.0),
             height: LengthPercentageAuto::length(0.0),
@@ -140,7 +154,6 @@ fn list_tab(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, R
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,
-            flex_grow: 1.0,
             gap: page.gap(6.0),
             ..Style::default()
         },
@@ -149,16 +162,22 @@ fn list_tab(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, R
     )
 }
 
-/// 待确认页签：生成按钮与提示固定，待确认列表滚。
+/// 待确认页签：生成按钮、语言勾选与提示固定，待确认列表自己滚。
 fn pending_tab(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
     let mut fixed = Vec::new();
+    fixed.push(generate_row(ui, page)?);
     if let Some(notice) = &page.settings.term_notice {
         fixed.push(paragraph(ui, theme, notice, None)?);
     }
+    let body_height = (page.content_height - page.px(HEADER_POINTS)).max(page.px(120.0));
     let body = pending_section(ui, page)?;
     let scroll = ScrollArea::new(Style {
-        flex_grow: 1.0,
+        size: Size {
+            width: Dimension::percent(1.0),
+            height: Dimension::length(body_height),
+        },
+        flex_shrink: 0.0,
         min_size: Size {
             width: LengthPercentageAuto::length(0.0),
             height: LengthPercentageAuto::length(0.0),
@@ -170,7 +189,6 @@ fn pending_tab(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,
-            flex_grow: 1.0,
             gap: page.gap(6.0),
             ..Style::default()
         },
@@ -179,27 +197,9 @@ fn pending_tab(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     )
 }
 
-/// 顶部三行：搜索、新增与粘贴导入、显示译名。
-fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+/// 生成那一行：语言勾选 + 全选 + 生成按钮（放在「待确认」页签）。
+fn generate_row(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
-    let mut rows = Vec::new();
-
-    if let Some(field) = page.settings.fields.get(&FieldId::TermSearch) {
-        let search = TextField::new(field)
-            .placeholder("词面 / 译名 / 读音")
-            .width(260.0)
-            .build(
-                ui,
-                theme,
-                "term-search",
-                |edit| Message::Edit(FieldId::TermSearch, edit),
-                None,
-                None,
-            )?;
-        rows.push(SettingRow::new("搜索").control(search).build(ui, theme)?);
-    }
-
-    // 要生成的语种 + 生成按钮
     let mut lang_boxes = Vec::new();
     for lang in crate::terms::pending::Lang::ALL {
         let on = page
@@ -256,28 +256,47 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         Visual::Group,
         &lang_boxes,
     )?;
-    let mut generate_row = vec![lang_row, mark_all, generate];
-    if let Some(notice) = &page.settings.term_notice {
-        generate_row.push(paragraph(ui, theme, notice, None)?);
-    }
-    rows.push(group(ui, theme, &generate_row)?);
+    group(ui, theme, &[lang_row, mark_all, generate])
+}
 
-    let add = Button::new("新增…").build(ui, theme, "add-term", Message::OpenTerm(None))?;
-    let paste = Button::new("粘贴导入…").build(ui, theme, "paste-terms", Message::OpenTermPaste)?;
-    let buttons = ui.scene().node(
+/// 页头两行：搜索与新增/导入；显示译名。
+fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let mut rows = Vec::new();
+
+    let mut line = Vec::new();
+    if let Some(field) = page.settings.fields.get(&FieldId::TermSearch) {
+        line.push(
+            TextField::new(field)
+                .placeholder("词面 / 译名 / 读音")
+                .width(240.0)
+                .build(
+                    ui,
+                    theme,
+                    "term-search",
+                    |edit| Message::Edit(FieldId::TermSearch, edit),
+                    None,
+                    None,
+                )?,
+        );
+    }
+    line.push(Button::new("新增…").build(ui, theme, "add-term", Message::OpenTerm(None))?);
+    line.push(Button::new("粘贴导入…").build(ui, theme, "paste-terms", Message::OpenTermPaste)?);
+    let line = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
             align_items: Some(AlignItems::CENTER),
             gap: page.gap(8.0),
             ..Style::default()
         },
         Visual::Group,
-        &[add, paste],
+        &line,
     )?;
     rows.push(
-        SettingRow::new("术语")
+        SettingRow::new("搜索")
             .info("词面必填；读音留空就只参与英文注解、不进拼音候选")
-            .control(buttons)
+            .control(line)
             .build(ui, theme)?,
     );
 
@@ -294,7 +313,6 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     group(ui, theme, &rows)
 }
 
-/// 标签筛选：全部 + 各标签（带条数），当前选中的高亮。
 fn chips(ui: &mut Ui<Message>, page: &Page, list: &Terms) -> Result<NodeId, RenderError> {
     let mut chips = Vec::new();
     chips.push(chip(
