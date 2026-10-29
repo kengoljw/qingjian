@@ -4,8 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 仓库现状
 
-跨平台输入法，Core 平台无关，各平台只做壳。已发版 0.1.3（macOS 与 Windows 共用版本号，2026-09-17）；Linux 提供 Rust Server + Fcitx5 默认候选面板（源码安装，0.1.4 起另有 Ubuntu 26.04 预编译包），另有 Ubuntu 22.04 的 Fcitx4 源码适配。
-阶段与已完成项见 `docs/plan/roadmap.md`，待办见 `docs/plan/todo.md`。
+跨平台输入法，Core 平台无关，各平台只做壳。**2026-10-28 起按 Windows 单平台开发**：
+只编 Windows（`apps/windows` + 共用的 `apps/settings` / Core），macOS 与 Linux 的壳不编译、不验证、不加功能；
+发布只出 `dist\青简-<日期>-<序号>\` 热更新包（server + settings + update.cmd + 说明），不做签名 / 安装包 / CI 发版。
+口径来自用户 2026-10-23「只考虑 Windows，不用考虑其他平台」与 2026-10-28「完全不管 / 只用热更新包」。
+
+代码结构仍是跨平台（Core 平台无关）；当前版本 `0.2.2-dev`，上一次发版 0.2.1（2026-10-14），
+五笔 86、混输、辅码、主题、符号面板等已在 0.2.0 / 0.2.1 上线。
+阶段与已完成项见 `docs/plan/roadmap.md`，待办见 `docs/plan/todo.md`，本机进度见 `PROGRESS.md`。
 
 ## 目录地图
 
@@ -23,11 +29,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `crates/qingjian-render`：候选窗与状态条：帧数据 + 主题 → 场景树，画在 bamboo-slip 上，各平台只贴图。见 `docs/design/rendering.md`。
 - `crates/bamboo-slip`：自绘 UI 引擎（场景树、布局、文字、动画 → 位图，另有控件库与窗口宿主），候选窗与设置程序共用；不放任何青简的概念，约定见该目录的 `CLAUDE.md`。双许可，见该目录的 `LICENSE.md`。
 - `crates/qingjian-update`：检查更新：读官网的 `releases.json`、验 ed25519 签名、按平台与渠道挑新版本，只提示不安装；发版侧的签名工具是 `tools/release-sign`。见 `docs/design/update.md`。
-- `apps/settings`：设置程序（三平台共用，画在 bamboo-slip 上，读写同一份配置文件），页面与设置项按 `docs/design/settings.md`；macOS 装在 `Qingjian.app/Contents/Applications/`，Windows、Linux 与 Server 同目录。`--png <目录>` 拷一份配置按脚本截图。
+- `apps/settings`：设置程序（共用代码，画在 bamboo-slip 上，读写同一份配置文件；当前只编 Windows），页面与设置项按 `docs/design/settings.md`；Windows 与 Server 同目录。`--png <目录>` 拷一份配置按脚本截图。
 - `apps/cli`：Core 的验证工具：查询、逐键计时、输入日志回放、整句评测、常数扫描。排序 / 整句 / 纠错的改动先跑它再合。
-- `apps/macos`：IMK 壳，按 `app / host / imk / candidates / menubar / preferences` 分目录（`preferences` 是旧版设置，新版 `apps/settings` 为主、旧版只作兜底）；`scripts/bundle.sh --install` 装到本机，`--pkg` 出分发包。
+- `apps/macos`：IMK 壳，按 `app / host / imk / candidates / menubar / preferences` 分目录（`preferences` 是旧版设置，新版 `apps/settings` 为主、旧版只作兜底）；`scripts/bundle.sh --install` 装到本机，`--pkg` 出分发包。**当前不维护：不编译、不验证。**
 - `apps/windows`：`server`（Server 进程：Engine + IPC + 自绘候选窗与状态条）+ `tsf`（TSF DLL）+ `settings`（旧版设置，WinUI 3，只作兜底，新版 `apps/settings` 为主）+ `installer`（Inno）。DLL 不能带 Engine 的依赖树，所以是两个 package。
-- `apps/linux`：`server`（Engine + Unix socket）+ `fcitx5` / `fcitx4`（框架事件、默认面板）+ `scripts`（用户级安装卸载、`package.sh` 打 Fcitx5 预编译包）；Server 手动启动，见 `docs/notes/linux-fcitx5.md` 和 `docs/notes/linux-fcitx4.md`。
+- `apps/linux`：`server`（Engine + Unix socket）+ `fcitx5` / `fcitx4`（框架事件、默认面板）+ `scripts`（用户级安装卸载、`package.sh` 打 Fcitx5 预编译包）；Server 手动启动，见 `docs/notes/linux-fcitx5.md` 和 `docs/notes/linux-fcitx4.md`。**当前不维护：不编译、不验证。**
 - `tools/dict-convert`、`tools/gloss-gen`、`tools/corpus`：产品数据生成（词库 / 语言模型 / 释义表 / emoji / 英文词表），输出到 `data/generated/`（gitignore）。
 - `assets/`：随包数据源与样例，各目录有 README 写来源与许可。雾凇拼音（GPL）已彻底移除，不要再引入。
 
@@ -36,17 +42,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用命令
 
+本机 Rust 在仓库内 `.toolchain`（便携安装，`cargo` 不在系统 PATH），先设环境变量：
+
+```powershell
+$env:CARGO_HOME="$PWD\.toolchain\cargo"; $env:RUSTUP_HOME="$PWD\.toolchain\rustup"; $env:PATH="$env:CARGO_HOME\bin;$env:PATH"
+```
+
 ```bash
 cargo build                                   # 整个 workspace
 cargo test                                    # 全部测试；-p <crate> 单个，加测试名过滤
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo run -p qingjian-cli -- <拼音>...          # Core 的主要验证方式；--replay / --eval-text 见 crate-notes
-apps/macos/scripts/bundle.sh --install        # mac 壳装到 ~/Library/Input Methods/（IMK 不能 cargo run 验证）
+cargo build --release -p qingjian-windows-server -p qingjian-settings   # 热更新包的两个 exe
 ```
 
-Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真机测试在 Windows 机器上做（部署方式见 `apps/windows/README.md`）；
-端到端验证 mac 可用 `osascript` 往 TextEdit 发按键再读回文本。
+Windows 真编译与真机测试就在本机做；部署见 `docs/notes/dev-env.md`（`hot-server.cmd` / `install-hot.cmd`）。
+macOS / Linux 的构建与验证不再执行（见「仓库现状」）。
 
 ## 开发前先看
 

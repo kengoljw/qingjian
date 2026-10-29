@@ -2,6 +2,16 @@
 
 各阶段有依赖关系：先把 Core 和 CLI 打通再碰平台 API，否则会在没有可测试内核的情况下调试 IMK。
 
+## 当前开发范围（2026-10-28 定）
+
+**只做 Windows**（用户 2026-10-23「只考虑 Windows，不用考虑其他平台」，2026-10-28 确认为「完全不管」）：
+
+- 只编 Windows：`apps/windows` + 共用的 `apps/settings` / Core；macOS 与 Linux 的壳不编译、不验证、不加功能。
+- 发布只出 `dist\青简-<日期>-<序号>\` 热更新包（server + settings + update.cmd + 说明），不做签名 / 安装包 / CI 发版。
+- 下面 Phase 2（macOS）、Phase 5 里的跨平台部分、Linux 条目保留作历史与代码位置说明，**不再是待办**。
+- 版本事实：当前 `0.2.2-dev`，上次发版 0.2.1（2026-10-14）；0.2.0 / 0.2.1 已上线五笔 86、混输、辅码、主题、符号面板等，
+  本文件没有逐条回填，已上线内容以 `CHANGELOG.md` 为准。
+
 ## Phase 1 — Core
 
 - [x] 基础 Composition 状态机
@@ -40,7 +50,7 @@
 
 以上「已完成」指 2026-09-06 的状态：自用能用，词库已是自建的产品数据（基础 + 11 本随包领域词库），学习数据原子写、坏文件容忍（见 Phase 2「崩溃不丢」）。
 
-## Phase 2 — macOS
+## Phase 2 — macOS（历史，2026-10-28 起不再维护）
 
 - [x] IMK 空壳（打包、安装、注册、按键到达链路）
 - [x] Input Method Kit 接入 Core（`apps/macos/src/host.rs` 进程级单例 Engine）

@@ -1,10 +1,12 @@
 # TODO
 
 按「从自用到能给别人用」排。勾掉的移到 [roadmap.md](roadmap.md) 对应阶段。`★` 是当前建议的优先项。
-2026-09-06 状态：核心输入、翻译（中→英 / 日 24.9 万词、英→中 4.5 万词、注假名、修饰键上屏译词、翻译选中文字）、英文模式候选、
-自建词库（基础 8.7 万条 + 随包领域词库 11 本 13 万条，含语料挖出的高频词）、多词库与导入 / 移除 / 开关、偏好设置、`.qj` 容器（启动 50 ms）、
-个人 n-gram（二元 + 三元）、词图内敲错边、崩溃不丢、pkg 安装器、README 安装 / 隐私 / 许可都已完成并在自用。
-给测试者打包只剩：特殊应用验证（用户自己在各应用里试）；签名等 Developer ID 证书。
+
+**2026-10-28 校准**：当前按 **Windows 单平台**开发（见 [roadmap.md](roadmap.md)「当前开发范围」），
+只出 `dist\青简-<日期>-<序号>\` 热更新包，不做签名 / 安装包 / CI 发版；macOS / Linux 相关条目不再排期。
+0.2.0 / 0.2.1 已上线的五笔 86、混输、辅码、主题、符号面板、德语 / 越南语等见 `CHANGELOG.md`；
+本文件里上线前的写法（例如「辅码 / 五笔没接」）按已完成处理。
+当前主线：候选正确率 → 词库 → 个人术语表 → 用户词库译文 → 中文直接出英文句子（研究）。
 
 ## 〇、上线前必须做（不做就不能给别人）
 
@@ -146,7 +148,7 @@
     data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
     密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux Fcitx5 后续（默认面板与手动安装已实现）：native Wayland 验证、Server 自绘 / GNOME 位图、神经重排、自动启动与打包；配置同步、跨平台词库
-- [ ] 设置项的平台缺口（设置程序 `apps/settings/src/support/` 表里标「待实现」的项，输入法接上之前设置里不显示；测试逐条对照这里）：
+- [ ] 设置项的平台缺口（2026-10-28 起不再排期；保留条目供 `apps/settings/src/support/` 的表测试对照，不再补 macOS / Linux）：
   - [ ] 辅码：macOS、Linux
   - [ ] 默认英文模式：macOS、Linux
   - [ ] 按应用记住中英模式：macOS、Linux
