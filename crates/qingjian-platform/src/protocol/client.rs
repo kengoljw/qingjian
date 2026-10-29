@@ -142,3 +142,25 @@ pub enum ClientMessage {
         session: SessionId,
     },
 }
+
+impl ClientMessage {
+    /// 这条消息属于哪个会话（每条都带，分派前要拿它查 DLL 的协议版本）。
+    pub fn session(&self) -> SessionId {
+        match self {
+            Self::OpenSession { session, .. }
+            | Self::Key { session, .. }
+            | Self::Commit { session }
+            | Self::Poll { session }
+            | Self::Surrounding { session, .. }
+            | Self::Privacy { session, .. }
+            | Self::Selection { session, .. }
+            | Self::PositionCandidates { session, .. }
+            | Self::HideCandidates { session }
+            | Self::ModeChanged { session, .. }
+            | Self::SyncMode { session }
+            | Self::ImeSwitched { session }
+            | Self::Indicator { session, .. }
+            | Self::CloseSession { session } => *session,
+        }
+    }
+}

@@ -22,7 +22,11 @@ mod session;
 /// **加枚举变体不在「仍能对话」之列**：`qingjian_core::Candidate` 是线上格式的一部分（见本模块文档），
 /// 给它加一个 `kind` 变体，老 DLL 解不出来会整条帧失败、按键直接放行——测试时看到的「输入法突然只出英文」
 /// 就是这么来的（`unknown variant `Code``）。加变体必须同时 +1 并重装 DLL，否则连警告都不会有。
-pub const PROTOCOL_VERSION: u32 = 9;
+pub const PROTOCOL_VERSION: u32 = 10;
+
+/// 从这个版本起，学习语言里多了法语 / 韩语（`Language` 枚举的新变体，见上面那条）。
+/// 更老的 DLL 不认识，Server 给它们发帧前会把这两门语言的注解摘掉，避免整条帧解不出来把输入法弄挂。
+pub const TRANSLATION_LANGUAGES_SINCE: u32 = 10;
 
 /// 从哪个协议版本起 DLL 会在 `OpenSession` 后阻塞读一条 [`ServerMessage::SessionOpened`]。
 /// 门槛是固定值而不是当前版本：以后版本再升，没重启的应用里那些旧 DLL 仍在等这条回包，

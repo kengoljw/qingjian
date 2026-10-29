@@ -7,7 +7,9 @@ use qingjian_core::{
     Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, CloudWord, GRID_ROWS, Grid,
     Language, Query, Sense, SurroundingText, Translation,
 };
-use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
+use qingjian_platform::protocol::{
+    Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment, TRANSLATION_LANGUAGES_SINCE,
+};
 
 use self::sentence_translation::SentenceTranslation;
 pub(super) use self::state::{Composed, TypedKeys};
@@ -417,10 +419,12 @@ impl Router {
         self.raw_frame()
     }
 
-    /// 协议比 Server 老的 DLL 不认识 `AuxCode` 段与颜文字、符号两种候选，收到会整条消息解析失败：
-    /// 码段降级成普通拼音段，那两种候选按 emoji 发（DLL 不看候选种类，只要解得出来）。
+    /// 协议比 Server 老的 DLL 不认识 `AuxCode` 段、颜文字 / 符号两种候选，也不认识法语 / 韩语这两种
+    /// 学习语言：收到会整条消息解析失败。码段降级成普通拼音段，那两种候选按 emoji 发（DLL 不看候选种类，
+    /// 只要解得出来）；法语 / 韩语注解直接摘掉，输入法照常可用，升级 DLL 后再有。
     fn downgrade_for_old_dll(&self, frame: &mut Frame) {
-        if self.focused_dll_protocol() >= PROTOCOL_VERSION {
+        let protocol = self.focused_dll_protocol();
+        if protocol >= PROTOCOL_VERSION {
             return;
         }
         for segment in &mut frame.preedit {
@@ -434,6 +438,15 @@ impl Router {
                 CandidateKind::Kaomoji | CandidateKind::Symbol
             ) {
                 candidate.kind = CandidateKind::Emoji;
+            }
+        }
+        if protocol < TRANSLATION_LANGUAGES_SINCE {
+            for candidate in &mut frame.candidates.items {
+                if candidate.translation.as_ref().is_some_and(|translation| {
+                    matches!(translation.language, Language::French | Language::Korean)
+                }) {
+                    candidate.translation = None;
+                }
             }
         }
     }
@@ -601,6 +614,33 @@ mod tests {
                 })
                 .unwrap();
         }
+    }
+
+    /// 老 DLL 的 `Language` 枚举不认识韩语：带韩语注解的帧要摘掉注解再发，否则整条帧解不出来。
+    #[test]
+    fn old_dll_does_not_get_korean_translation() {
+        let mut router = Router::new(
+            Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()),
+            RouterConfig::default(),
+        );
+        router.handle(ClientMessage::OpenSession {
+            session: SessionId(1),
+            app: None,
+            protocol: PROTOCOL_VERSION - 1,
+        });
+        router.focused = Some(SessionId(1));
+        let mut frame = Frame::default();
+        frame.candidates.items.push(Candidate {
+            text: "中国".to_owned(),
+            kind: CandidateKind::Chinese,
+            syllables: Vec::new(),
+            reading: None,
+            translation: Some(Translation::new(Language::Korean, Vec::new())),
+            aux_code: None,
+            settled: true,
+        });
+        router.downgrade_for_old_dll(&mut frame);
+        assert!(frame.candidates.items[0].translation.is_none());
     }
 
     /// 回归 #283：DLL 报来的光标前文要成为云联想的 `before` 上下文；
