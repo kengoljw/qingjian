@@ -31,7 +31,11 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
         .iter()
         .map(|theme| theme.id().to_owned())
         .collect();
-    let mut runner = Runner::new(settings, FontLibrary::system("zh-CN")?);
+    let library = match crate::system::fonts::ui_font() {
+        Some(font) => FontLibrary::with_ui_font("zh-CN", &font)?,
+        None => FontLibrary::system("zh-CN")?,
+    };
+    let mut runner = Runner::new(settings, library);
     runner.stage().set_animations(false);
     runner.rebuild(SCALE, SIZE, Instant::now())?;
 
