@@ -1,4 +1,4 @@
-# TODO
+﻿# TODO
 
 按「从自用到能给别人用」排。勾掉的移到 [roadmap.md](roadmap.md) 对应阶段。`★` 是当前建议的优先项。
 
@@ -59,7 +59,7 @@
 - [ ] ★ 用户词库译文生成（设计见 [personal-terms.md](../design/personal-terms.md)）：云端批量、英 / 日 / 西 / 法 / 韩，
   待确认表（`user-glossary-pending-<语言>.tsv`）改完再进正式表，限流与用量与 Phase 6 合并
 - [~] 新增法语与韩语：`Language::French` / `Korean` 与设置页已通；**韩语表已出初版**
-  （`glossary-ko.tsv`，5,434 个常用词 + 术语，离线整理、待校对，覆盖见 `assets/glossary/README.md`）；
+  （`glossary-ko.tsv`，约 2 万常用词 + 术语，离线整理、已做一轮对抗审校、待人工抽查，覆盖见 `assets/glossary/README.md`）；
   法语表仍缺（需 `gloss-gen --languages fr`，约 24 万词，要 API 费用）
 - [ ] 研究：输入中文直接出英文句子（2026-10-23 提出，下一阶段；先按 `docs/plan/model-eval.md` 写假设与尺子再立项）
 - [ ] 整句转换收尾：语料再补（现在是维基 + LCCC 微博对话，新闻 / 小说体还缺；bigram 只留次数 ≥ 6 的前 300 万对，
@@ -169,3 +169,4 @@
 - [ ] 五笔（86 版）：方案与分期见 [wubi.md](wubi.md)，第一期 Core + CLI + Windows；
   `[general] scheme` 收敛与配置迁移一起做（顺带解掉〇里的「配置文件版本迁移」）
 - [ ] 复杂方案收尾（与上一条共用「输入方案」抽象）：注音只在 Core 与 Windows 接了，macOS 侧还没接；双拼的方案切换要等 `[general] scheme`
+
