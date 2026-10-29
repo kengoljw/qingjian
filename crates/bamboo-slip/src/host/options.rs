@@ -1,5 +1,7 @@
 //! 开窗口的参数。
 
+use crate::fonts::UiFont;
+
 #[derive(Debug, Clone)]
 pub struct WindowOptions {
     pub title: String,
@@ -11,6 +13,9 @@ pub struct WindowOptions {
 
     /// 中日字形回退按它挑字体，见 [`crate::FontLibrary::system`]。
     pub locale: String,
+
+    /// 界面字体；`None` 用平台缺省（Windows 是 Segoe UI）。
+    pub ui_font: Option<UiFont>,
 }
 
 impl WindowOptions {
@@ -20,6 +25,7 @@ impl WindowOptions {
             size,
             min_size: (size.0 * 0.6, size.1 * 0.5),
             locale: "zh-CN".to_owned(),
+            ui_font: None,
         }
     }
 }

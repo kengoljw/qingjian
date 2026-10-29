@@ -430,11 +430,15 @@ fn row(
         detail.push_str(" · ");
         detail.push_str(&term.reading);
     }
-    let detail = text(
-        ui,
-        &truncate(&detail, 56),
-        theme.text(theme.small, 400, theme.colors.secondary),
-    )?;
+    let detail = text(ui, &truncate(&detail, 56), {
+        let mut style = theme.text(theme.small, 400, theme.colors.secondary);
+        match page.settings.term_lang {
+            crate::terms::Lang::Ja => style.family = page.settings.japanese,
+            crate::terms::Lang::Ko => style.family = page.settings.korean,
+            _ => {}
+        }
+        style
+    })?;
     let text_column = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,

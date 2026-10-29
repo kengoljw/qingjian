@@ -82,6 +82,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let settings = Settings::load(config)?;
     let mut options = WindowOptions::new("青简设置", (900.0, 680.0));
     options.min_size = (640.0, 420.0);
+    options.ui_font = system::fonts::ui_font();
     run_window(settings, options)?;
     Ok(())
 }

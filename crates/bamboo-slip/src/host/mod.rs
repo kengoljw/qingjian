@@ -23,7 +23,10 @@ pub const TITLEBAR: f32 = if cfg!(target_os = "macos") { 28.0 } else { 0.0 };
 
 /// 开窗口跑 `app`，直到窗口关掉或应用要退出。
 pub fn run<A: App + 'static>(app: A, options: WindowOptions) -> Result<(), HostError> {
-    let library = FontLibrary::system(&options.locale)?;
+    let library = match &options.ui_font {
+        Some(font) => FontLibrary::with_ui_font(&options.locale, font),
+        None => FontLibrary::system(&options.locale),
+    }?;
     let mut runner = Runner::new(app, library);
     let event_loop = EventLoop::with_user_event().build()?;
     let proxy = event_loop.create_proxy();

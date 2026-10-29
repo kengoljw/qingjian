@@ -36,6 +36,7 @@ pub fn menu(
     let strings = |values: Vec<String>| -> Vec<toml_edit::Value> {
         values.into_iter().map(toml_edit::Value::from).collect()
     };
+    let mut menu_families: Option<Vec<bamboo_slip::FamilyId>> = None;
     let (key, labels, values, selected): (&str, Vec<String>, Vec<toml_edit::Value>, Option<usize>) =
         match popup {
             Popup::Font => {
@@ -47,6 +48,20 @@ pub fn menu(
                     .chain(families.iter().cloned())
                     .collect();
                 let selected = values.iter().position(|value| *value == general.font);
+                let mut ids = vec![bamboo_slip::FamilyId::default()];
+                ids.extend(families.iter().map(|name| {
+                    if name.chars().any(|c| matches!(c, '\u{3040}'..='\u{30ff}')) {
+                        page.settings.japanese
+                    } else if name
+                        .chars()
+                        .any(|c| matches!(c, '\u{ac00}'..='\u{d7af}' | '\u{1100}'..='\u{11ff}'))
+                    {
+                        page.settings.korean
+                    } else {
+                        bamboo_slip::FamilyId::default()
+                    }
+                }));
+                menu_families = Some(ids);
                 ("font", labels, strings(values), selected)
             }
             Popup::Scheme => {
@@ -121,13 +136,16 @@ pub fn menu(
             }
         };
     let items: Vec<&str> = labels.iter().map(String::as_str).collect();
-    Menu::new(&items, selected, rect, window)
-        .build(
-            ui,
-            &page.theme,
-            "menu",
-            move |index| Message::set("general", key, values[index].clone()),
-            Message::CloseMenu,
-        )
-        .map(Some)
+    let mut menu = Menu::new(&items, selected, rect, window);
+    if let Some(families) = menu_families.as_deref() {
+        menu = menu.families(families);
+    }
+    menu.build(
+        ui,
+        &page.theme,
+        "menu",
+        move |index| Message::set("general", key, values[index].clone()),
+        Message::CloseMenu,
+    )
+    .map(Some)
 }

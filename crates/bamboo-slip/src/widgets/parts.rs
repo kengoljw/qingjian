@@ -9,6 +9,7 @@ use super::WidgetTheme;
 use crate::color::Color;
 use crate::error::RenderError;
 use crate::scene::{BoxPaint, Effect, EffectKind, Fill, Visual};
+use crate::text::font::FamilyId;
 use crate::ui::Ui;
 
 /// 焦点环离控件外沿的距离（点）。
@@ -22,11 +23,26 @@ pub(super) fn label<M>(
     weight: u16,
     color: Color,
 ) -> Result<NodeId, RenderError> {
+    label_in(ui, theme, text, points, weight, color, FamilyId::default())
+}
+
+/// 同 [`label`]，但指定字族（字体下拉里用每个字体名自己的字体预览）。
+pub(super) fn label_in<M>(
+    ui: &mut Ui<M>,
+    theme: &WidgetTheme,
+    text: &str,
+    points: f32,
+    weight: u16,
+    color: Color,
+    family: FamilyId,
+) -> Result<NodeId, RenderError> {
+    let mut style = theme.text(points, weight, color);
+    style.family = family;
     ui.scene().node(
         Style::default(),
         Visual::Text {
             text: text.to_owned(),
-            style: theme.text(points, weight, color),
+            style,
         },
         &[],
     )

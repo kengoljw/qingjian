@@ -301,6 +301,14 @@ impl App for Settings {
             "SimSun".to_owned(),
             "Noto Serif CJK SC".to_owned(),
         ]));
+        self.japanese = table.intern(&FamilyList(vec![
+            "Yu Gothic".to_owned(),
+            "Microsoft YaHei UI".to_owned(),
+        ]));
+        self.korean = table.intern(&FamilyList(vec![
+            "Malgun Gothic".to_owned(),
+            "Microsoft YaHei UI".to_owned(),
+        ]));
         text.use_families(&Arc::new(table));
     }
 

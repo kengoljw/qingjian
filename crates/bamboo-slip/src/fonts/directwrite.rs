@@ -68,6 +68,37 @@ pub fn family_files(family: &str) -> Vec<PathBuf> {
     files
 }
 
+/// 字族能不能显示某个字（看第一张面的字形索引，0 为没有）。
+pub fn family_has_char(family: &str, ch: char) -> bool {
+    let Some(collection) = system_collection() else {
+        return false;
+    };
+    // SAFETY: 只读查询；码点与字形各一个，出参指向栈上。
+    unsafe {
+        let mut index = 0u32;
+        let mut exists = BOOL(0);
+        if collection
+            .FindFamilyName(&HSTRING::from(family), &mut index, &mut exists)
+            .is_err()
+            || !exists.as_bool()
+        {
+            return false;
+        }
+        let Ok(font_family) = collection.GetFontFamily(index) else {
+            return false;
+        };
+        let Ok(font) = font_family.GetFont(0) else {
+            return false;
+        };
+        let Ok(face) = font.CreateFontFace() else {
+            return false;
+        };
+        let codepoint = ch as u32;
+        let mut glyph = 0u16;
+        face.GetGlyphIndices(&codepoint, 1, &mut glyph).is_ok() && glyph != 0
+    }
+}
+
 /// 本机字体文件的路径；网络 / 内存字体（不是本地加载器）返回 `None`。
 fn file_path(file: &IDWriteFontFile) -> Option<PathBuf> {
     // SAFETY: 引用键由 DirectWrite 持有、随 file 存活；路径缓冲按报的长度加终止符分配。

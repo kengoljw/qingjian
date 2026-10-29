@@ -9,14 +9,15 @@ use taffy::{Dimension, FlexDirection, LengthPercentageAuto, NodeId, Position, Re
 use super::ScrollArea;
 use super::WidgetTheme;
 use super::check_mark::CheckMark;
-use super::parts::{centered, label, overlay, padding, row, solid};
+use super::parts::{centered, label_in, overlay, padding, row, solid};
 use crate::animation::Easing;
 use crate::error::RenderError;
 use crate::scene::{Effect, EffectKind, Visual};
+use crate::text::font::FamilyId;
 use crate::ui::{Interact, Ui};
 
 /// 菜单最宽、最高（点），离窗口底边与触发控件的距离（点）。
-const MIN_WIDTH: f32 = 200.0;
+const MIN_WIDTH: f32 = 260.0;
 
 const MAX_HEIGHT: f32 = 320.0;
 
@@ -26,6 +27,9 @@ const GAP: f32 = 4.0;
 
 pub struct Menu<'a> {
     items: &'a [&'a str],
+
+    /// 每项用的字族；缺项用界面字体（字体下拉按字体名自己的字体预览）。
+    families: Option<&'a [FamilyId]>,
 
     selected: Option<usize>,
 
@@ -45,10 +49,17 @@ impl<'a> Menu<'a> {
     ) -> Self {
         Self {
             items,
+            families: None,
             selected,
             anchor,
             window,
         }
+    }
+
+    /// 每项的字族，长度与 `items` 相同。
+    pub fn families(mut self, families: &'a [FamilyId]) -> Self {
+        self.families = Some(families);
+        self
     }
 
     /// `on_pick(序号)` 点了一项时产出；`on_dismiss` 点了菜单外面时产出（Esc 由使用方在根上接）。
@@ -107,7 +118,12 @@ impl<'a> Menu<'a> {
             let check = ui
                 .scene()
                 .node(centered(side, side), Visual::Group, &mark)?;
-            let text = label(ui, theme, item, theme.font.size, 400, colors.text)?;
+            let family = self
+                .families
+                .and_then(|families| families.get(index))
+                .copied()
+                .unwrap_or_default();
+            let text = label_in(ui, theme, item, theme.font.size, 400, colors.text, family)?;
             let fill = (state.hovered || state.pressed).then_some(if state.pressed {
                 colors.pressed
             } else {

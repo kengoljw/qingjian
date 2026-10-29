@@ -35,7 +35,11 @@ fn dragging_the_terms_list_scrollbar_moves_the_list() {
         error: None,
     });
 
-    let mut runner = Runner::new(settings, FontLibrary::system("zh-CN").unwrap());
+    let library = match crate::system::fonts::ui_font() {
+        Some(font) => FontLibrary::with_ui_font("zh-CN", &font).unwrap(),
+        None => FontLibrary::system("zh-CN").unwrap(),
+    };
+    let mut runner = Runner::new(settings, library);
     runner.stage().set_animations(false);
     runner.rebuild(SCALE, SIZE, Instant::now()).unwrap();
 

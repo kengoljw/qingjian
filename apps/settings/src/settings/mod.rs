@@ -55,6 +55,12 @@ pub struct Settings {
     /// 侧栏品牌字用的宋体字族。
     pub serif: FamilyId,
 
+    /// 日文（假名 + 汉字）用的字族：术语页的日文译名、字体下拉里的日文字体名。
+    pub japanese: FamilyId,
+
+    /// 韩文用的字族。
+    pub korean: FamilyId,
+
     /// 开着的下拉菜单。
     pub menu: Option<Popup>,
 
@@ -179,6 +185,8 @@ impl Settings {
             previews: RefCell::new(Previews::new()),
             logo,
             serif: FamilyId::default(),
+            japanese: FamilyId::default(),
+            korean: FamilyId::default(),
             menu: None,
             fonts: None,
             armed: None,
