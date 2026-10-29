@@ -50,8 +50,12 @@ impl Engine {
         if self.aux_filter().is_none() {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
+        let total_syllables = query
+            .segmentations
+            .first()
+            .map_or(0, |segmentation| segmentation.syllables.len());
         show_settled_first(&mut query.candidates.items);
-        keep_first_word(self, &mut query.candidates.items);
+        keep_first_word(self, &mut query.candidates.items, total_syllables);
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
             Some(correction) => correction.segmentation.joined("'"),
@@ -126,42 +130,46 @@ pub(super) fn chinese_candidate(item: &Scored<'_>, aux_code: Option<&str>) -> Ca
 ///
 /// 只挪**给出**的顺序，不动生成时的位置：整句候选排在词级候选前面，`limit` 截断时先被砍掉的就是它们，
 /// 挪到后面去等于把它们挤出候选表，重排回来也没东西可换（`local_model_rescoring_reorders_sentence_after_pause` 就是这么挂的）。
-/// 同一个输入串里，第一帧给过的词库首选不被后到的整句顶掉：用户已经看到「办公室」在第一，
-/// 异步整句回来变「办公所」会让人照着错位上屏。切到别的串就重新记。
-fn keep_first_word(engine: &Engine, items: &mut [Candidate]) {
+/// 同一个输入串里，第一帧给过的**覆盖整段输入**的词库首选不被后到的整句顶掉：
+/// 用户已经看到「办公室」在第一，异步整句回来变「办公所」会让人照着错位上屏。
+/// 只覆盖了前半段的词（`jixubu` 的 继续）不锁：它本来就是个前缀，整句回来自该换上去。
+/// 切到别的串就重新记。
+fn keep_first_word(engine: &Engine, items: &mut [Candidate], whole_syllables: usize) {
     let scope = engine.composition.scope();
     let mut kept = engine.first_kept.borrow_mut();
     let Some(first) = items.first() else {
+        *kept = None;
         return;
     };
-    match kept.as_ref() {
-        Some((seen_scope, word, kind)) if *seen_scope == scope => {
-            if first.text == *word {
-                return;
-            }
-            // 原来是词库词，新来的是整句 / 模型生成：把原来那条挪回第一
-            let word_kind = *kind == CandidateKind::Chinese;
-            let sentence_kind = matches!(
-                first.kind,
-                CandidateKind::Sentence | CandidateKind::Generated
-            );
-            if word_kind
-                && sentence_kind
-                && let Some(position) = items.iter().position(|c| c.text == *word)
-            {
-                let previous = items[position].clone();
-                for slot in (1..=position).rev() {
-                    items[slot] = items[slot - 1].clone();
-                }
-                items[0] = previous;
-            } else {
-                *kept = Some((scope.to_owned(), first.text.clone(), first.kind));
-            }
+    if let Some((seen_scope, word, _kind)) = kept.as_ref()
+        && *seen_scope == scope
+    {
+        if first.text == *word {
+            return;
         }
-        _ => {
-            *kept = Some((scope.to_owned(), first.text.clone(), first.kind));
+        // 原来是覆盖整段输入的词库词，新来的是整句 / 模型生成：把原来那条挪回第一
+        let sentence_kind = matches!(
+            first.kind,
+            CandidateKind::Sentence | CandidateKind::Generated
+        );
+        if sentence_kind && let Some(position) = items.iter().position(|c| c.text == *word) {
+            let previous = items[position].clone();
+            for slot in (1..=position).rev() {
+                items[slot] = items[slot - 1].clone();
+            }
+            items[0] = previous;
+            return;
         }
     }
+    *kept = whole_key_word(first, whole_syllables)
+        .then(|| (scope.to_owned(), first.text.clone(), first.kind));
+}
+
+/// 这条候选吃满整段输入（音节数等于切分段数），词库词才算「用户看到的答案」。
+fn whole_key_word(candidate: &Candidate, whole_syllables: usize) -> bool {
+    candidate.kind == CandidateKind::Chinese
+        && whole_syllables > 0
+        && candidate.syllables.len() == whole_syllables
 }
 
 pub(super) fn show_settled_first(items: &mut [Candidate]) {
@@ -197,11 +205,11 @@ mod first_word_tests {
     use crate::candidate::CandidateKind;
     use crate::dictionary::Dictionary;
 
-    fn candidate(text: &str, kind: CandidateKind) -> Candidate {
+    fn candidate(text: &str, kind: CandidateKind, syllables: &[&str]) -> Candidate {
         Candidate {
             text: text.to_owned(),
             kind,
-            syllables: Vec::new(),
+            syllables: syllables.iter().map(|text| (*text).to_owned()).collect(),
             reading: None,
             translation: None,
             aux_code: None,
@@ -210,30 +218,55 @@ mod first_word_tests {
     }
 
     #[test]
-    fn a_word_first_stays_first_when_a_sentence_arrives_later() {
+    fn a_whole_key_word_stays_first_when_a_sentence_arrives_later() {
         let mut engine = Engine::new(Dictionary::default());
         engine.set_input("bangongs");
-        // 第一帧：词库词「办公室」在第一位
+        // 第一帧：覆盖整段输入的词库词「办公室」在第一位
         let mut first = vec![
-            candidate("办公室", CandidateKind::Chinese),
-            candidate("办公", CandidateKind::Chinese),
+            candidate("办公室", CandidateKind::Chinese, &["ban", "gong", "shi"]),
+            candidate("办公", CandidateKind::Chinese, &["ban", "gong"]),
         ];
-        keep_first_word(&engine, &mut first);
+        keep_first_word(&engine, &mut first, 3);
         assert_eq!(first[0].text, "办公室");
 
-        // 后到的整句候选想抢第一：要把它挪回第一
+        // 后到的整句候选想抢第一：要把原来那条挪回第一
         let mut later = vec![
-            candidate("办公所", CandidateKind::Sentence),
-            candidate("办公室", CandidateKind::Chinese),
+            candidate("办公所", CandidateKind::Sentence, &["ban", "gong", "suo"]),
+            candidate("办公室", CandidateKind::Chinese, &["ban", "gong", "shi"]),
         ];
-        keep_first_word(&engine, &mut later);
-        assert_eq!(later[0].text, "办公室", "看过的词库首选不该被整句顶掉");
+        keep_first_word(&engine, &mut later, 3);
+        assert_eq!(later[0].text, "办公室", "看过的整段词首选不该被整句顶掉");
         assert_eq!(later[1].text, "办公所");
 
         // 换一个输入串就重新记，允许新的排序
         engine.set_input("bangongsuo");
-        let mut next = vec![candidate("办公所", CandidateKind::Sentence)];
-        keep_first_word(&engine, &mut next);
+        let mut next = vec![candidate(
+            "办公所",
+            CandidateKind::Sentence,
+            &["ban", "gong", "suo"],
+        )];
+        keep_first_word(&engine, &mut next, 3);
         assert_eq!(next[0].text, "办公所");
+    }
+
+    #[test]
+    fn a_partial_word_does_not_keep_the_sentence_off_the_first_slot() {
+        let mut engine = Engine::new(Dictionary::default());
+        engine.set_input("jixubu");
+        // 第一帧首位只覆盖前两个音节：它是前缀，不该锁
+        let mut first = vec![
+            candidate("继续", CandidateKind::Chinese, &["ji", "xu"]),
+            candidate("急需", CandidateKind::Chinese, &["ji", "xu"]),
+        ];
+        keep_first_word(&engine, &mut first, 3);
+        assert_eq!(first[0].text, "继续");
+
+        // 重排回来的整句吃满整段输入，应该能排第一
+        let mut later = vec![
+            candidate("继续不", CandidateKind::Sentence, &["ji", "xu", "bu"]),
+            candidate("继续", CandidateKind::Chinese, &["ji", "xu"]),
+        ];
+        keep_first_word(&engine, &mut later, 3);
+        assert_eq!(later[0].text, "继续不", "前缀词不该压住整句");
     }
 }
