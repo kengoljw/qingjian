@@ -156,3 +156,30 @@ fn changed_keys_discard_the_cached_scores() {
     assert_eq!(texts(&paths), ["开饭", "开放"]);
     assert!(engine.rescoring_pending());
 }
+
+#[test]
+fn scores_for_one_key_set_survive_a_query_with_a_shorter_key_set() {
+    // 一次查询里先算头段（短按键）、再算整段（长按键）是常态；下一次查询又会先走一遍头段。
+    // 短按键不能把长按键刚拿到的分冲掉，否则整句永远停在「还没等到神经分」。
+    let mut engine =
+        engine().with_async_sentence_scorer(Box::new(Prefers("开放")), Some(0.5), None, None);
+    let mut paths = vec![path("开饭", -10.0), path("开放", -11.0)];
+    engine.rescore_paths(&mut paths, "kaifanle");
+    assert!(engine.request_rescoring());
+    let started = Instant::now();
+    while !engine.poll_rescoring() {
+        assert!(started.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(engine.sentence_settled("开饭"));
+
+    let mut head = vec![path("开饭", -10.0), path("开放", -11.0)];
+    engine.rescore_paths(&mut head, "kaifan");
+    let mut full = vec![path("开饭", -10.0), path("开放", -11.0)];
+    engine.rescore_paths(&mut full, "kaifanle");
+    assert!(
+        engine.sentence_settled("开饭"),
+        "长按键的分不该被短按键那次查询冲掉"
+    );
+    assert!(!engine.rescoring_pending());
+}

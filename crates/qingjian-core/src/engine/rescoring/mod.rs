@@ -82,6 +82,12 @@ impl Engine {
                 missing.push(path.text.clone());
             }
         }
+        tracing::debug!(
+            paths = paths.len(),
+            missing = missing.len(),
+            keys,
+            "rescore_paths"
+        );
         if !missing.is_empty() {
             match &self.sentence_scorer {
                 Some(scorer) => {
@@ -91,7 +97,7 @@ impl Engine {
                         return;
                     }
                     for (text, score) in texts.iter().zip(scores) {
-                        cache.insert(text, score);
+                        cache.insert(keys, text, score);
                     }
                 }
                 None => {
@@ -157,6 +163,7 @@ impl Engine {
         };
         let mut cache = self.neural_cache.borrow_mut();
         let wanted = cache.take_wanted();
+        let keys = cache.wanted_keys().to_owned();
         let generate = cache.take_wanted_generation();
         if wanted.is_empty() && generate.is_none() {
             return false;
@@ -166,12 +173,7 @@ impl Engine {
             generate = generate.is_some(),
             "神经请求"
         );
-        worker.submit(
-            cache.context().to_owned(),
-            cache.keys().to_owned(),
-            wanted,
-            generate,
-        );
+        worker.submit(cache.context().to_owned(), keys, wanted, generate);
         true
     }
 
@@ -188,14 +190,16 @@ impl Engine {
                 cache.insert_generated(&keys, texts);
                 updated = true;
             }
-            if scored.context != cache.context()
-                || scored.keys != cache.keys()
-                || scored.scores.len() != scored.texts.len()
-            {
+            if scored.context != cache.context() || scored.scores.len() != scored.texts.len() {
+                tracing::debug!(
+                    scored_context = scored.context.chars().count(),
+                    cache_context = cache.context().chars().count(),
+                    "丢弃过期重打分结果"
+                );
                 continue;
             }
             for (text, score) in scored.texts.iter().zip(scored.scores) {
-                cache.insert(text, score);
+                cache.insert(&scored.keys, text, score);
             }
             updated = true;
         }
