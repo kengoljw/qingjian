@@ -53,6 +53,17 @@ cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss
 
 首版不附 `levels-de` 词汇等级表（与越南语首版一致）。
 
+## 韩语（`glossary-ko.tsv`）
+
+2026-10-29 离线整理：取词库词频最高的 5,000 个词 + 术语表里进拼音候选的 434 条，
+用模型知识逐词给出最常用的韩语对应词（不调云端 API，不产生 API 费用）。
+覆盖：词频加权约 **77.5%**，日常输入语料词次约 **75.4%**。
+
+**机器整理、未人工校对**：常用词大体可用（中国 → 중국、公司 → 회사、时间 → 시간），
+专名、多义词、虚词可能有误；发现错译可在个人释义表 `user-glossary-ko.tsv` 覆盖。
+生成与校验脚本在本机 `.toolchain/`（不进仓库）：`make_ko_lists.py`、`validate_ko.py`；
+打包用 `dict-convert pack glossary --language ko`。
+
 ## 西班牙语（`glossary-es.tsv`）
 
 由 `tools/corpus/glossary_es.py` 用 **Azure Translator** 机器翻译生成，**不是 LLM**，
