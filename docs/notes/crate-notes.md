@@ -482,6 +482,11 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
   **码表自带的权重不用**——那是码表顺序不是语料词频，用了同一个词在形码下和在拼音下会排得不一样；词频从青简词库按**词面**交叉回填，
   词库里没有的词给 `UNKNOWN_FREQUENCY = 1`。解析复用 `qingjian_dictionary::import::rime`（与用户导入 Rime 词库同一个解析器，
   形码码表的第二列是编码，格式一样）。词库还没收的词不收（码表整张进，不做取码推导，见 `docs/plan/wubi.md`）。
+- `sogou`：搜狗用户词库 `.bin`（文件头 `SGPU`）→ 词库 TSV（`sogou.rs`）。搜狗的读音字段是私有编码，**不解**：
+  读音按 `assets/lexicon/char-pinyin.tsv`（单字读音表，6640 字，取该字自己词条里词频最高的读音）
+  逐字拼，只收 `assets/lexicon/gb2312.txt`（GB2312 常用字 6763）里、且每个字都有读音的词；
+  多音字按最常用读音（长 → zhang、重 → zhong），导入后可在术语页改。
+  解析在 `qingjian_dictionary::import::sogou`（设置页「导入词库」用同一个解析器）。
 - `bigram`：统计语料；`--phrases` 给短语层、`--brand` 给品牌词（`assets/lexicon/brand.tsv`，青简 210）与中英混杂词（`mixed_words.tsv`，C盘 / B站：合成计数要成分词在语料里，C 不是 token，只能直接给一元，次数对着同音竞争词定），领域词也走合成计数（语料里只有几十次的词当 token 统计会吸走成分词的二元证据）。
 - `mine`：从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤）。
 - `phrases`：挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，

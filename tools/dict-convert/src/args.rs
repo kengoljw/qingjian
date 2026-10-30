@@ -180,6 +180,26 @@ pub enum Command {
         max_chars: usize,
     },
 
+    /// 搜狗用户词库 `.bin`（文件头 `SGPU`）→ 词库 TSV：`词\t拼音\t词频`。
+    /// 搜狗的读音字段是私有编码，这里不解；读音按「单字读音表」逐字拼，只收常用字里的词。
+    Sogou {
+        /// 搜狗用户词库 `.bin`
+        #[arg(required = true)]
+        input: PathBuf,
+
+        /// 单字读音表（`字\t音节`）
+        #[arg(long, default_value = "assets/lexicon/char-pinyin.tsv")]
+        readings: PathBuf,
+
+        /// 允许的常用字集合（一行一个字的 UTF-8 文件）
+        #[arg(long, default_value = "assets/lexicon/gb2312.txt")]
+        common: PathBuf,
+
+        /// 输出文件名（写在 --out-dir 下）
+        #[arg(long, default_value = "sogou.tsv")]
+        name: String,
+    },
+
     /// 笔画表：CNS11643 全字庫「筆順資料」+ 大陆序覆盖表 → `codes/stroke.tsv`（随包笔画码表的源数据，见模块文档）。
     /// 参数的 clap 定义在 `stroke::StrokeOptions`，加参数只动那一处
     Stroke(StrokeOptions),

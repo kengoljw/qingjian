@@ -8,6 +8,8 @@
 //! - `bigram`：纯文本语料（如 `tools/corpus/parquet_to_text.py` 转出的中文维基 CC BY-SA 4.0、LCCC 对话 MIT）→ `lm-unigram.tsv` + `lm-bigram.tsv`
 //! - `mine`：语料里分词落成连续单字的段 → `oov-candidates.tsv`（词库没收的高频词，标音后用 `lexicon --extra-words` 并入）
 //! - `phrases`：bigram 表的相邻两词 + 语料的相邻三词 → `phrases.tsv`（我的 / 不知道 这类短语层，读音由成分词拼出，同样用 `lexicon --extra-words` 并入）
+//! - `sogou`：搜狗用户词库 `.bin`（文件头 `SGPU`）→ 词库 TSV；搜狗的读音字段是私有编码，这里不解，
+//!   读音按「单字读音表」逐字拼（`assets/lexicon/char-pinyin.tsv`），只收常用字里的词
 //! - `stroke`：CNS11643 全字庫「筆順資料」+ 大陆序覆盖表（`assets/stroke/prc-rules.tsv`）→ `codes/stroke.tsv`（随包笔画码表的源数据，`--verify` 抽样对照大陆笔画数）
 //! - `mmh-reference`：hanzi-writer-data（Make Me a Hanzi；Arphic 许可，不进仓库）→ `data/mmh/` 的两张开发期对照表
 //!   （笔画数、首笔几何类别），`stroke --verify` 找不到哪张就跳过哪张对照
@@ -30,6 +32,7 @@ mod mmh;
 mod oov_filter;
 mod pack;
 mod phrases;
+mod sogou;
 mod stroke;
 mod wubi;
 
@@ -153,6 +156,17 @@ fn run() -> Result<(), ConvertError> {
             },
             &args.out_dir,
         ),
+        Command::Sogou {
+            input,
+            readings,
+            common,
+            name,
+        } => {
+            let (entries, skipped) =
+                sogou::convert(&input, &readings, &common, &args.out_dir.join(name))?;
+            tracing::info!(entries, skipped, "搜狗用户词库已转换");
+            Ok(())
+        }
         Command::Stroke(options) => stroke::convert(&options, &args.out_dir),
         Command::MmhReference(options) => mmh::generate(&options),
         Command::Pack {

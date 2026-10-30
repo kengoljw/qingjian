@@ -31,6 +31,7 @@ pub use aux_code_table::{
 pub use code_table::CodeTable;
 pub use dictionary::Dictionary;
 pub use error::DictionaryError;
+pub use import::{SogouImported, import_sogou, looks_like_sogou, sogou_words};
 pub use matching::Match;
 pub use pattern::{SyllablePattern, canonical_syllable};
 pub use word_list::WordList;

@@ -5,13 +5,52 @@ mod report;
 
 pub use report::Report;
 
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use bamboo_slip::Waker;
-use qingjian_dictionary::{DictionaryError, import, import_aux_code_table};
+use qingjian_dictionary::{
+    DictionaryError, import, import_aux_code_table, import_sogou, looks_like_sogou,
+};
 
 use crate::library::Kind;
+
+/// 搜狗词库只给词面，读音用这张「单字 → 音节」表逐字拼；只收 GB2312 常用字里的词。
+const SOGOU_READINGS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../assets/lexicon/char-pinyin.tsv"
+));
+const SOGOU_COMMON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../assets/lexicon/gb2312.txt"
+));
+
+fn sogou_tables() -> &'static (HashMap<char, String>, HashSet<char>) {
+    static TABLES: OnceLock<(HashMap<char, String>, HashSet<char>)> = OnceLock::new();
+    TABLES.get_or_init(|| {
+        let readings = SOGOU_READINGS
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .filter_map(|line| {
+                let mut fields = line.split('\t');
+                let ch = fields.next()?.chars().next()?;
+                let syllable = fields.next()?.trim();
+                (!syllable.is_empty()).then(|| (ch, syllable.to_owned()))
+            })
+            .collect();
+        let common = SOGOU_COMMON.chars().collect();
+        (readings, common)
+    })
+}
+
+/// 扩展名 `.bin` 或文件头 `SGPU` 都当搜狗用户词库。
+fn is_sogou(source: &Path) -> bool {
+    source
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("bin"))
+        || std::fs::read(source).is_ok_and(|bytes| looks_like_sogou(&bytes))
+}
 
 #[derive(Default)]
 pub struct ImportJob {
@@ -30,7 +69,7 @@ impl ImportJob {
         let dir = kind.user_dir().ok_or("找不到数据目录")?;
         let dialog = match kind {
             Kind::Dictionary => rfd::FileDialog::new()
-                .add_filter("词库文件", &["tsv", "yaml", "yml", "qj"])
+                .add_filter("词库文件", &["tsv", "yaml", "yml", "qj", "bin"])
                 .set_title("导入词库"),
             Kind::CodeTable => rfd::FileDialog::new()
                 .add_filter("码表文件", &["yaml", "yml", "qj"])
@@ -69,6 +108,18 @@ fn run(kind: Kind, sources: &[PathBuf], dir: &Path) -> Report {
             |name| name.to_string_lossy().into_owned(),
         );
         let outcome = match kind {
+            Kind::Dictionary if is_sogou(source) => {
+                let (readings, common) = sogou_tables();
+                import_sogou(source, dir, readings, common).map(|done| {
+                    (
+                        done.imported.path,
+                        format!(
+                            "已导入搜狗词库「{}」，{} 条（跳过 {} 条：含生僻字或读音不全）",
+                            done.imported.name, done.imported.entries, done.skipped
+                        ),
+                    )
+                })
+            }
             Kind::Dictionary => import::import(source, dir).map(|done| {
                 (
                     done.path,

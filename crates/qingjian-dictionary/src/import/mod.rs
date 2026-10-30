@@ -5,6 +5,7 @@
 
 mod imported;
 mod rime;
+mod sogou;
 
 use std::path::{Path, PathBuf};
 
@@ -14,6 +15,7 @@ use crate::dictionary::Dictionary;
 use crate::error::DictionaryError;
 
 pub use imported::Imported;
+pub use sogou::{SogouImported, import_sogou, looks_like_sogou, words as sogou_words};
 // `dict-convert wubi` 也读 Rime `.dict.yaml`（形码码表的第二列是编码，转换方式一样），共用这一个解析器
 pub use rime::{Parsed, looks_like_rime, to_tsv};
 
@@ -63,7 +65,7 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
 /// `law.dict.yaml` → `law`，`dict.tsv` → `dict`。
 pub(crate) fn strip_extensions(file_name: &str) -> String {
     let mut stem = file_name;
-    for suffix in [".dict.yaml", ".yaml", ".yml", ".tsv", ".txt", ".qj"] {
+    for suffix in [".dict.yaml", ".yaml", ".yml", ".tsv", ".txt", ".qj", ".bin"] {
         if let Some(s) = stem.strip_suffix(suffix) {
             stem = s;
             break;
