@@ -70,6 +70,15 @@ cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss
 专名、多义词、虚词最容易错；发现错译可在个人释义表 `user-glossary-ko.tsv` 覆盖。
 打包用 `dict-convert pack glossary --language ko`。
 
+## 法语（`glossary-fr.tsv`）
+
+2026-10-30 离线整理：与韩语表同一份 **20,401 词**（词频前 20,000 + 术语 + 高频短语），
+用模型知识逐词给出最常用法语对应词（不调云端 API）。覆盖：词频加权 **94.2%**、日常语料词次 **92.8%**。
+
+校对：规则体检 + 词频前 5,000 条对抗审校（约 **4.8%** 被标）+ 随机抽 1,000 条（约 **6.0%** 被标），
+错译 / 不自然 / 拼写类共自动修正 **254 条**；未人工校对。格式：名词单数不带冠词、动词不定式、
+形容词阳性单数，每条最多 3 个法语词。打包用 `dict-convert pack glossary --language fr`。
+
 ## 西班牙语（`glossary-es.tsv`）
 
 由 `tools/corpus/glossary_es.py` 用 **Azure Translator** 机器翻译生成，**不是 LLM**，
