@@ -33,6 +33,10 @@ cargo build --release -p qingjian-windows-server -p qingjian-settings
 
 - 只做 Windows：macOS / Linux 壳不编译（见 `CLAUDE.md`「仓库现状」）。
 - 发布只出 `dist\青简-<日期>-<序号>\` 热更新包，不打压缩包、不签名。
+- **要发给别人装**（整包装机，不是热更新）走 `tools\windows-package\build-package.ps1`：
+  它只依赖 Windows 自带的 IExpress 与 `tar.exe`，不需要 Inno Setup，出单文件自解压 exe。
+  正式发版仍用 `apps\windows\installer\build.ps1`（Inno，产出可签名的 setup）。详见
+  [windows-package.md](windows-package.md)。
 
 ## 部署与真机
 
