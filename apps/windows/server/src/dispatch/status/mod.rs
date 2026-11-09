@@ -72,6 +72,10 @@ impl Router {
                 tracing::debug!("状态条：打开符号面板");
                 self.open_panel_for(self.mode_session);
             }
+            StatusEvent::SyncNow => {
+                tracing::debug!("状态条：立即同步");
+                self.sync_now();
+            }
             StatusEvent::Moved(x, y) => {
                 self.config.status_pos = Some((x, y));
                 self.persist("status_bar", "x", i64::from(x));

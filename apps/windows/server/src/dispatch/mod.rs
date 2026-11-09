@@ -92,6 +92,9 @@ pub struct Router {
     /// 上次把学习数据落盘的时间。
     last_flush: Instant,
 
+    /// 双机同步路径；`None` = 没配置（同步默认关）。由 `main` 从环境变量装配。
+    sync_paths: Option<qingjian_core::SyncPaths>,
+
     /// 配置热加载状态；`None` 表示不热加载。
     reload: Option<ConfigReload>,
 
@@ -186,6 +189,7 @@ impl Router {
             grid: None,
             navigated: false,
             last_flush: Instant::now(),
+            sync_paths: None,
             reload: None,
             term_words: std::sync::Arc::new(std::collections::HashSet::new()),
             candidates: Box::new(NoopSink),
@@ -207,8 +211,7 @@ impl Router {
         }
     }
 
-    /// 下发给 DLL 的按键行为设置：`OpenSession` 的回包带一次，之后每拍 `SyncMode` 也跟着走，
-    /// 所以 DLL 不用自己读配置文件，配置改了也不用重开会话。英文候选按这个会话的应用算。
+    /// 下发给 DLL 的按键行为设置：`OpenSession` 的回包带一次，之后每拍 `SyncMode` 也跟着走，    /// 所以 DLL 不用自己读配置文件，配置改了也不用重开会话。英文候选按这个会话的应用算。
     pub(super) fn input_settings(&self, session: SessionId) -> InputSettings {
         let app = self
             .sessions
@@ -249,6 +252,35 @@ impl Router {
 
     pub fn set_status_sink(&mut self, sink: Box<dyn StatusSink>) {
         self.status = sink;
+    }
+
+    /// 配置双机同步路径。没配（`None`）时状态条的同步格按下也不会做任何事。
+    pub fn set_sync_paths(&mut self, paths: Option<qingjian_core::SyncPaths>) {
+        self.sync_paths = paths;
+    }
+
+    /// 跑一轮同步（开机自动一次 / 用户点状态条「立即同步」）。
+    ///
+    /// 必须在工人线程里串行执行：直接对当前活动 learner 原地合并，不换 Box，
+    /// 因此不会丢未落盘的学习数据，也不会被 60 秒 flush 覆盖。
+    /// 失败只记日志并给一条屏幕提示，不影响输入。
+    pub fn sync_now(&mut self) {
+        let Some(paths) = self.sync_paths.clone() else {
+            tracing::info!("双机同步未配置（QINGJIAN_SYNC_BOX 未设置），本轮跳过");
+            return;
+        };
+        match qingjian_core::run_once(self.engine.learner_mut(), &paths) {
+            Ok(report) => {
+                tracing::info!(
+                    merged = report.merged,
+                    peer = report.peer_found,
+                    exported = report.exported,
+                    manual = report.manual,
+                    "双机同步完成"
+                );
+            }
+            Err(error) => tracing::warn!(%error, "双机同步失败"),
+        }
     }
 
     /// 处理一条消息；`None` 表示不用回话。到点顺带把学习数据落盘。

@@ -20,6 +20,29 @@ fn config_path() -> Option<PathBuf> {
     qingjian_platform::dirs::config_path()
 }
 
+/// 双机同步的路径来源：`QINGJIAN_SYNC_BOX` 指向 Syncthing 同步的 `sync-box/` 目录，
+/// `QINGJIAN_SYNC_DEVICE` 可覆盖设备名（缺省用 `%COMPUTERNAME%`）。
+///
+/// 没设置 = 同步关闭（决议 D4「默认关、显式开启」）。用环境变量而不是配置文件，
+/// 是为了不改 Config 结构、不改设置 UI，且各平台壳读同名变量即可统一做法。
+fn sync_paths_from_env() -> Option<qingjian_core::SyncPaths> {
+    let box_dir = std::env::var_os("QINGJIAN_SYNC_BOX")?;
+    let box_dir = PathBuf::from(box_dir);
+    if box_dir.as_os_str().is_empty() {
+        return None;
+    }
+    let device = std::env::var("QINGJIAN_SYNC_DEVICE")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| std::env::var("COMPUTERNAME").ok())
+        .unwrap_or_else(|| "device".to_owned());
+    Some(qingjian_core::SyncPaths {
+        data_dir: user_dir().unwrap_or_default(),
+        box_dir,
+        device,
+    })
+}
+
 /// 首次启动把带说明的配置模板写到 `%APPDATA%\Qingjian\config.toml`（与 macOS 一致）；
 /// 这时日志还没装好，结果交给 `main` 记。已有文件返回 `Ok(false)`。
 fn write_config_template() -> Option<Result<bool, ConfigError>> {
@@ -238,6 +261,13 @@ fn main() {
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
+    // 双机同步：由环境变量给出 sync-box 路径（各平台壳读同一个变量，做法统一）。
+    // 未设置 = 默认关；设置了才注入路径并在开机时跑一轮。
+    let sync_paths = sync_paths_from_env();
+    router.set_sync_paths(sync_paths.clone());
+    if sync_paths.is_some() {
+        router.sync_now();
+    }
     // 术语词集合：候选窗据此给术语注解加标记
     router.set_term_words(dispatch::term_words(user_dir().as_deref()));
     let model_path = dispatch::find_model(user_dir().as_deref(), &root);

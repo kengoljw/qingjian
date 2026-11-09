@@ -72,6 +72,7 @@ impl Placement {
             }
             Some(StatusAction::OpenSymbolPanel) => (self.events)(StatusEvent::OpenSymbolPanel),
             Some(StatusAction::OpenSettings) => crate::ui::open_settings(),
+            Some(StatusAction::SyncNow) => (self.events)(StatusEvent::SyncNow),
             None => {}
         }
     }

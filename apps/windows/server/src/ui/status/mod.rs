@@ -77,15 +77,20 @@ pub(super) struct StatusBar {
 }
 
 /// 各格从左到右的动作。
-const ACTIONS: [StatusAction; 4] = [
+const ACTIONS: [StatusAction; 5] = [
     StatusAction::ToggleMode,
     StatusAction::TogglePunctuation,
     StatusAction::OpenSymbolPanel,
+    StatusAction::SyncNow,
     StatusAction::OpenSettings,
 ];
 
 /// 打开符号面板那一格的字。
 const PANEL_TEXT: &str = "符";
+
+/// 双机同步那一格的字。用汉字「同」而不是箭头符号：箭头在状态条字体里
+/// 常被渲染成半个装饰图标，用户看不出是可点的按钮。
+const SYNC_TEXT: &str = "同";
 
 impl StatusBar {
     /// 建一个隐藏的状态条窗口。
@@ -183,12 +188,13 @@ impl StatusBar {
         }
     }
 
-    /// 渲染器要的四格：模式（品牌色）、标点（生效时品牌色，否则灰）、符号面板（灰）、齿轮。
+    /// 渲染器要的五格：模式（品牌色）、标点（生效时品牌色，否则灰）、符号面板（灰）、同步（灰）、齿轮。
     fn status_cells(view: &StatusView) -> Vec<StatusCell> {
         vec![
             StatusCell::text(Self::mode_text(view), true),
             StatusCell::text(if view.full_width { "，。" } else { ",." }, view.full_width),
             StatusCell::text(PANEL_TEXT, false),
+            StatusCell::text(SYNC_TEXT, false),
             StatusCell::Gear,
         ]
     }
@@ -222,6 +228,12 @@ impl StatusBar {
                 font: theme.text_font,
                 color: theme.gloss_color,
                 action: StatusAction::OpenSymbolPanel,
+            },
+            CellSpec {
+                text: SYNC_TEXT.to_owned(),
+                font: theme.text_font,
+                color: theme.gloss_color,
+                action: StatusAction::SyncNow,
             },
             CellSpec {
                 text: "\u{2699}".to_owned(),

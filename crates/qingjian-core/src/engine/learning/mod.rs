@@ -12,6 +12,7 @@ use crate::sentence;
 mod forgotten;
 mod learner;
 mod muted;
+pub mod sync;
 
 pub use forgotten::Forgotten;
 pub use learner::{Learner, NoLearner};

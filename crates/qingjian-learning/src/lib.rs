@@ -11,7 +11,7 @@ mod usage_stats;
 mod vocabulary_book;
 
 pub use error::LearningError;
-pub use frequency_learner::FrequencyLearner;
+pub use frequency_learner::{FrequencyLearner, MergeStats, SNAPSHOT_FILES};
 pub use input_log::InputLog;
 pub use usage_stats::{USAGE_FILE, UsageStats};
 pub use vocabulary_book::VocabularyBook;

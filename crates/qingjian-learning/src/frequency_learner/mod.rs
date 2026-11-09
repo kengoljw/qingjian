@@ -1,6 +1,9 @@
 mod decay;
 mod learner_impl;
+mod merge;
 mod tables;
+
+pub use merge::{MergeStats, SNAPSHOT_FILES};
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};

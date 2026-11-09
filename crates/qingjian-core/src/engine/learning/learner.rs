@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use qingjian_dictionary::{Dictionary, WordList};
 
 use super::Forgotten;
@@ -103,6 +105,20 @@ pub trait Learner: Send {
 
     /// 选择次数衰减的半衰期（天），0 为不衰减。缺省不动；回放调参（`--tune decay-days=`）才换。
     fn set_decay_half_life(&mut self, _days: f64) {}
+
+    /// 双机同步：把 `dir` 里的对端快照**原地**合并进当前学习器，返回改了多少条目。
+    ///
+    /// 缺省返回 0（不学习 / 内存实现没有快照可合）。实现必须保留自己的活动目录落盘路径，
+    /// 不能因为读了快照就把后续 `flush()` 写进快照目录。由壳一天触发一次，不是实时节拍。
+    fn merge_snapshot(&mut self, _dir: &Path) -> std::io::Result<usize> {
+        Ok(0)
+    }
+
+    /// 双机同步：把当前状态整组导出到 `dir`，做成对端可合并的快照。
+    /// 缺省什么都不做；导出不得改变自身落盘路径或吃掉待写回活动目录的 dirty 状态。
+    fn export_snapshot(&mut self, _dir: &Path) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 /// 不学习。

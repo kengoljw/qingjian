@@ -212,6 +212,19 @@ impl Learner for FrequencyLearner {
         self.set_half_life_days(days);
     }
 
+    // 双机同步：委托给 frequency_learner/merge.rs 的原地合并 / 整组导出。
+    // `LearningError` 只包 io::Error，转成 io::Result 供 Core 的 trait 签名用。
+    fn merge_snapshot(&mut self, dir: &Path) -> std::io::Result<usize> {
+        self.merge_snapshot_impl(dir)
+            .map(|stats| stats.total())
+            .map_err(|error| std::io::Error::other(error.to_string()))
+    }
+
+    fn export_snapshot(&mut self, dir: &Path) -> std::io::Result<()> {
+        self.export_snapshot_impl(dir)
+            .map_err(|error| std::io::Error::other(error.to_string()))
+    }
+
     fn forget(&mut self, text: &str) -> Forgotten {
         let mut forgotten = Forgotten::default();
         if self.words.remove(text).is_some() {

@@ -14,4 +14,8 @@ pub(crate) enum StatusAction {
 
     /// 齿轮：打开设置程序（UI 线程直接起进程，不经 Router）。
     OpenSettings,
+
+    /// 「同」：立即跑一轮双机同步（一天一次，也可手动点）。走 Router，
+    /// 因为同步要碰 Engine 里的 learner。
+    SyncNow,
 }

@@ -179,7 +179,13 @@
   - [ ] 发版：Certum 开源代码签名证书、`windows-v<版本>` 标签与 CI
 - [x] Linux Fcitx5 第一阶段：Rust Server、默认候选面板、用户目录安装与手动启动（2026-09-18）；未改系统 Fcitx5 的 GTK4 / Qt6 X11 输入已验证
 - [ ] Linux 后续：Server 自绘 X11 窗口、Server 向 GNOME 扩展发送位图、神经重排、自动启动与 Debian 包；各自独立 PR，IBus 暂缓
-- [ ] 配置同步
+- [~] 设备间同步（内置，2026-11-06 起）：学习词频 9 张成对表 + `user-blocked.tsv` 走快照 merge，
+  人维护表（`user-terms.tsv` / `dicts/`）走整文件同步；默认关、显式开启。
+  - [x] `crates/qingjian-learning` 的合并 / 导出 / 快照校验与单测
+  - [x] Core 层 `Learner` trait 钩子 + `MutedLearner` 转发 + 平台无关编排 `engine::learning::sync::run_once`
+  - [x] Windows 悬浮状态条「⇄ 立即同步」一格 + 开机自动跑一次（`QINGJIAN_SYNC_BOX` 未设置则默认关）
+  - [ ] macOS 菜单栏 / Linux 状态图标接同一入口（两壳当前不编译，恢复维护时做）
+  - [ ] 双机真机验收（G5 上线后）
 - [ ] 跨平台词库
 
 ## Phase 6 — 云联想

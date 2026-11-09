@@ -41,8 +41,8 @@ pub use engine::{
     ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, NoGlossFiller, NoInputLogger, NoLearner, NoPredictor,
     NoTranslator, NoUsageMeter, NoVocabularyTracker, Prediction, PredictionKind, PredictionPolicy,
     PredictionRequest, Predictor, QUESTION_PREFIX, Query, RESCORE_CONTEXT_CHARS, RawPreedit,
-    SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary, VocabularySummary,
-    VocabularyTracker, book_scale, is_valid_aux_code_key,
+    SurroundingText, SyncPaths, SyncReport, Timings, Translator, Usage, UsageMeter, UsageSummary,
+    VocabularySummary, VocabularyTracker, book_scale, is_valid_aux_code_key, run_once,
 };
 pub use fuzzy::FuzzyRules;
 pub use history::InputHistory;

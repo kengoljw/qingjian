@@ -137,6 +137,24 @@ macOS 壳一直有）。漏了之后误上屏的词一路留在 `user-choices` �
   Engine `annotate` 据此填 `Sense::fresh`，看到轮次不到 `FRESH_UNTIL` = 3 的译词壳里画橙色；「看到」按上屏那一刻屏幕上那一页算，壳每次画完 `Engine::note_displayed` 告知当前页）。
 - 各表落盘走 Core `storage::write_atomic`（临时文件 + fsync + 改名），加载按行容错（坏行警告跳过，真读不了壳退回内存学习），
   壳激活期间每 60 秒 `Engine::flush_learning`；IMK 回调边界 `imk::catch_panic` 拦 panic、缓冲区字母原样上屏（见 architecture.md「崩溃不丢」）。
+- `frequency_learner/merge.rs`（双机同步，crate 层）：`validate_snapshot(dir)` 校验 9 张必备表齐备且三组成对表主表／侧车键集合一致；
+  `merge_snapshot(dir)` **原地** `&mut self` 合并对端快照——`count` 与 `last_used` 双取 max、集合表取并集、禁止因缺席删除，
+  不改 `self.path`（仍指活动目录）、不换 Box，避免 `flush()` 把本机数据写进快照目录；n-gram 字段在 Core 里私有，
+  走 `to_tsv` / `parse_lenient` 在文本层按键取 max 后重建。`export_snapshot_to(dir)` 无条件写全套 10 张表
+  （9 张成对表 + `user-blocked.tsv`，其中 `save_blocked_to` 是本 crate 新增的写口，表头与设置程序一致），
+  复用各 `save_*_to` 保证表头／列序，并保存恢复 dirty 标志，导出不会吃掉待写回活动目录的那次 flush。
+  `SNAPSHOT_FILES` / `MergeStats` 从 crate 根导出给 Server 层用。housekeeping（减半／冷淘汰）只在本地 record 路径，
+  merge 路径不做。
+- `qingjian-core/src/engine/learning/sync.rs`（**平台无关的编排层**）：`Learner` trait 加了
+  `merge_snapshot` / `export_snapshot` 两个默认方法（不学习的实现返回 0／空操作），`MutedLearner` 原样转发
+  （同步是管理动作，私密输入／关闭学习时照常做）。`run_once(&mut dyn Learner, &SyncPaths)` 一天跑一轮：
+  找 `sync-box/<对端>/` → 原地 merge → `flush()` 写回活动目录 → 导出 `sync-box/<本机>/` →
+  人维护表（`user-terms.tsv` / `user-terms-pending.tsv` / `dicts/`）整文件 LWW 双向同步。
+  对端还没导出过就只导出不合并；多个对端目录直接报错。只按白名单搬文件，不碰 IPC／DLL／协议。
+- Windows 壳：`apps/windows/server` 的悬浮状态条加第 4 格「⇄」（`StatusAction::SyncNow` →
+  `StatusEvent::SyncNow` → `Router::sync_now` → `qingjian_core::run_once`），开机跑一次；
+  路径来自环境变量 `QINGJIAN_SYNC_BOX`（未设置 = 同步默认关）与 `QINGJIAN_SYNC_DEVICE`（缺省 `%COMPUTERNAME%`）。
+  状态条是 Server 自绘 UI，点击走内部 `Work::Status`，**没动 `IndicatorCommand` / `PROTOCOL_VERSION` / TSF DLL**。
 
 ## crates/qingjian-predict
 

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use qingjian_dictionary::{Dictionary, WordList};
 
 use super::{Forgotten, Learner};
@@ -164,6 +166,16 @@ impl Learner for MutedLearner {
 
     fn flush(&mut self) {
         self.inner.flush();
+    }
+
+    // 同步是管理动作，不是「这段输入的学习」：私密输入 / 关掉学习时照常合并与导出
+    // （同 forget / flush）。读写都转发给里层，不套 muted 判断。
+    fn merge_snapshot(&mut self, dir: &Path) -> std::io::Result<usize> {
+        self.inner.merge_snapshot(dir)
+    }
+
+    fn export_snapshot(&mut self, dir: &Path) -> std::io::Result<()> {
+        self.inner.export_snapshot(dir)
     }
 }
 
